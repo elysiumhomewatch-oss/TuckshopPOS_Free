@@ -298,15 +298,20 @@
     async function fetchInventory() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return elements.saleStatus.textContent = "Set Apps Script URL in Settings";
-        try {
-            const res = await fetch(url, { method: 'POST', body: JSON.stringify({action: "getInventory"}) });
-            if (!res.ok) throw new Error("Fetch failed");
-            inventory = (await res.json()).map(i => ({...i, barcode: String(i.Barcode || i.barcode || '') }));
-            elements.saleStatus.textContent = `Loaded ${inventory.length} items`;
-        } catch (e) {
-            console.error(e);
-            elements.saleStatus.textContent = "Sync failed – check URL";
-        }
+        // Replace the try block with this minimal test
+try {
+    const testBody = JSON.stringify({action: "test", message: "Hello from app"});
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: testBody
+    });
+    const text = await res.text();
+    console.log("Response:", text);
+    alert("Test response: " + text);
+} catch (e) {
+    alert("Fetch error: " + e.message);
+}
     }
 
     async function saveStockToCloud() {
