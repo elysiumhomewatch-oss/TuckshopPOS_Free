@@ -1,0 +1,1 @@
+# TuckshopPOS_Free
