@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tuckshop POS Free - Level 0</title>
+    <link rel="icon" href="data:,">
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+    <style>
+        :root { --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --bg: #f8fafc; --text: #1e293b; --gray: #64748b; }
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 12px; min-height: 100vh; }
+        .container { max-width: 520px; margin: auto; background: white; padding: 16px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+        nav { display: flex; gap: 8px; margin-bottom: 16px; }
+        nav button { flex: 1; padding: 12px; border: none; background: #e2e8f0; border-radius: 10px; font-weight: 600; cursor: pointer; }
+        nav button.active { background: var(--primary); color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        #interactive.viewport { width: 100%; height: 260px; background: #000; border-radius: 12px; margin: 12px 0; display: none; overflow: hidden; }
+        #interactive.viewport video, #interactive.viewport canvas { width: 100%; height: 100%; object-fit: cover; }
+        input, select { width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; margin-bottom: 12px; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-weight: 600; font-size: 16px; cursor: pointer; margin-bottom: 12px; }
+        .btn-scan { background: var(--primary); color: white; }
+        .btn-save { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-gray { background: var(--gray); color: white; }
+        .cart-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+        #search-results { position: absolute; background: white; width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; max-height: 220px; overflow-y: auto; z-index: 10; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .search-row { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .watermark { color: #94a3b8; font-size: 13px; text-align: center; margin: 16px 0; }
+        .upgrade-msg { background: #fef3c7; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align:center; color:var(--primary);">Tuckshop POS Free</h2>
+    <div class="watermark">Free Level 0 – Upgrade for unlimited use, recipes, employees & more!</div>
+
+    <nav>
+        <button id="nav-sale" class="active" onclick="showTab('sale')">Sale</button>
+        <button id="nav-stock" onclick="showTab('stock')">Stock</button>
+        <button id="nav-sets" onclick="showTab('sets')">Settings</button>
+    </nav>
+
+    <div id="interactive" class="viewport"></div>
+    <button id="stop-scan-btn" class="btn btn-danger" style="display:none;" onclick="stopScanner()">Close Camera</button>
+
+    <div id="sale-tab" class="tab-content active">
+        <button id="scan-btn" class="btn btn-scan" onclick="startScanner('sale')">📷 Scan Item</button>
+        <div style="position:relative;">
+            <input type="text" id="manual-search" placeholder="🔍 Search name or barcode..." oninput="handleSearch(this.value)">
+            <div id="search-results"></div>
+        </div>
+        <div id="cart">
+            <div id="cart-items-list"></div>
+            <div style="display:flex; justify-content:space-between; font-size:22px; font-weight:800; padding:20px 0;">
+                <span>Total</span><span id="grand-total">R0.00</span>
+            </div>
+            <button class="btn btn-save" onclick="checkout()">Complete Sale</button>
+            <button class="btn btn-gray" onclick="clearCart()">Clear Cart</button>
+        </div>
+        <div id="sale-status" style="color:var(--gray); font-size:14px; margin-top:8px;"></div>
+        <div class="upgrade-msg" id="limit-msg" style="display:none;">
+            Daily free limit reached (100 items). Upgrade to continue selling today!
+        </div>
+    </div>
+
+    <div id="stock-tab" class="tab-content">
+        <h2>Receive Goods</h2>
+        <button class="btn btn-scan" onclick="startScanner('stock')">📷 Scan Barcode</button>
+        <input type="text" id="stock-barcode" placeholder="Barcode">
+        <input type="text" id="stock-name" placeholder="Item Name">
+        <input type="number" step="0.01" id="stock-cost" placeholder="Cost Price (R)">
+        <select id="stock-cat">
+            <option value="Snacks">Snacks</option>
+            <option value="Drinks">Drinks</option>
+            <option value="Other">Other</option>
+        </select>
+        <button id="save-stock-btn" class="btn btn-save" onclick="saveStockToCloud()">Save Item</button>
+        <div id="stock-status" style="color:var(--gray); font-size:14px; margin-top:8px;"></div>
+    </div>
+
+    <div id="sets-tab" class="tab-content">
+        <h2>Settings</h2>
+        <label>Google Apps Script URL (required for cloud sync):</label>
+        <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
+        <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save & Sync</button>
+        <div class="upgrade-msg" style="margin-top:20px;">
+            <strong>Want more features?</strong><br>
+            - Unlimited sales<br>
+            - Takeaways & recipes (kota, vetkoek)<br>
+            - Employee clock-in & pay<br>
+            - Better reports<br>
+            Contact Morney on WhatsApp for Level 1 upgrade!
+        </div>
+    </div>
+</div>
+
+<script>
+    let inventory = [];
+    let cart = [];
+    let isScannerRunning = false;
+    let currentScanMode = null;
+    let lastDetectionTime = 0;
+    const DETECTION_COOLDOWN_MS = 1800;
+    const DAILY_LIMIT = 100; // Free tier limit
+    let dailyCount = 0;
+    let todayKey = 'tuckshop_free_today_' + new Date().toDateString();
+
+    const elements = {
+        manualSearch: document.getElementById('manual-search'),
+        searchResults: document.getElementById('search-results'),
+        cartList: document.getElementById('cart-items-list'),
+        grandTotal: document.getElementById('grand-total'),
+        saleStatus: document.getElementById('sale-status'),
+        limitMsg: document.getElementById('limit-msg')
+    };
+
+    // Load daily count from localStorage
+    window.onload = () => {
+        loadSettings();
+        fetchInventory();
+        renderCart();
+        dailyCount = parseInt(localStorage.getItem(todayKey) || '0');
+        checkDailyLimit();
+    };
+
+    function checkDailyLimit() {
+        if (dailyCount >= DAILY_LIMIT) {
+            elements.limitMsg.style.display = 'block';
+            document.getElementById('scan-btn').disabled = true;
+            elements.manualSearch.disabled = true;
+        } else {
+            elements.limitMsg.style.display = 'none';
+            document.getElementById('scan-btn').disabled = false;
+            elements.manualSearch.disabled = false;
+        }
+    }
+
+    function incrementDailyCount() {
+        dailyCount++;
+        localStorage.setItem(todayKey, dailyCount);
+        checkDailyLimit();
+    }
+
+    function showTab(tab) {
+        if (isScannerRunning) stopScanner();
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById(tab + '-tab').classList.add('active');
+        document.getElementById('nav-' + tab).classList.add('active');
+    }
+
+    async function startScanner(mode) {
+        if (dailyCount >= DAILY_LIMIT && mode === 'sale') return alert("Daily free limit reached. Upgrade for unlimited sales!");
+        if (typeof Quagga === 'undefined') return alert("Scanner not loaded.");
+        currentScanMode = mode;
+        lastDetectionTime = 0;
+
+        try {
+            await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            document.getElementById('interactive').style.display = 'block';
+            document.getElementById('stop-scan-btn').style.display = 'block';
+            isScannerRunning = true;
+
+            Quagga.init({
+                inputStream: { name: "Live", type: "LiveStream", target: document.getElementById('interactive'),
+                    constraints: { facingMode: "environment", width: {ideal:1280}, height:{ideal:720} } },
+                locator: { patchSize: "medium", halfSample: true },
+                numOfWorkers: 2,
+                decoder: { readers: ["ean_reader", "code_128_reader", "upc_reader", "code_39_reader"] },
+                locate: true
+            }, err => {
+                if (err) { alert("Scanner error: " + err); stopScanner(); return; }
+                Quagga.start();
+            });
+
+            Quagga.onDetected(data => {
+                const now = Date.now();
+                if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
+                lastDetectionTime = now;
+
+                const code = data.codeResult.code;
+                if (navigator.vibrate) navigator.vibrate(80);
+
+                if (currentScanMode === 'sale') {
+                    addToCart(code);
+                    elements.saleStatus.textContent = `Added: ${code}`;
+                    setTimeout(stopScanner, 400);
+                    incrementDailyCount();
+                } else {
+                    document.getElementById('stock-barcode').value = code;
+                    stopScanner();
+                }
+            });
+        } catch (e) {
+            alert("Camera error – check permissions.");
+            stopScanner();
+        }
+    }
+
+    function stopScanner() {
+        if (Quagga && isScannerRunning) Quagga.stop();
+        document.getElementById('interactive').style.display = 'none';
+        document.getElementById('stop-scan-btn').style.display = 'none';
+        isScannerRunning = false;
+    }
+
+    function handleSearch(val) {
+        if (val.length < 2) { elements.searchResults.style.display = 'none'; return; }
+        const lower = val.toLowerCase();
+        const filtered = inventory.filter(i => 
+            (i.name || '').toLowerCase().includes(lower) || String(i.barcode || '').includes(val)
+        );
+        elements.searchResults.innerHTML = filtered.map(i => 
+            `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">${i.name} – R${getPrice(i)}</div>`
+        ).join('');
+        elements.searchResults.style.display = filtered.length ? 'block' : 'none';
+    }
+
+    function getPrice(item) {
+        const cat = item.category || 'Other';
+        const markup = parseFloat(localStorage.getItem('markup-' + cat)) || 20;
+        return (Number(item.cost || 0) * (1 + markup / 100)).toFixed(2);
+    }
+
+    function addToCart(barcodeStr) {
+        if (dailyCount >= DAILY_LIMIT) return alert("Daily limit reached – upgrade!");
+        const barcode = String(barcodeStr);
+        const item = inventory.find(i => String(i.barcode) === barcode);
+        if (!item) return alert("Item not found.");
+        const existing = cart.find(c => String(c.barcode) === barcode);
+        if (existing) existing.qty++;
+        else cart.push({ ...item, qty: 1, price: getPrice(item) });
+        elements.manualSearch.value = '';
+        elements.searchResults.style.display = 'none';
+        renderCart();
+        incrementDailyCount();
+    }
+
+    function renderCart() {
+        elements.cartList.innerHTML = cart.map((i, idx) => `
+            <div class="cart-item">
+                <span><b>${i.name}</b> x${i.qty}</span>
+                <span>R${(i.price * i.qty).toFixed(2)} <button onclick="removeFromCart(${idx})" style="color:red;">✕</button></span>
+            </div>
+        `).join('');
+        const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
+        elements.grandTotal.textContent = 'R' + total.toFixed(2);
+    }
+
+    function removeFromCart(idx) { cart.splice(idx, 1); renderCart(); }
+    function clearCart() { if (confirm("Clear cart?")) { cart = []; renderCart(); } }
+
+    function checkout() {
+        if (!cart.length) return;
+        const total = elements.grandTotal.textContent;
+        alert(`Checkout complete!\nTotal: ${total}\nThank you!\n\n(Tuckshop POS Free - Level 0)`);
+        clearCart();
+    }
+
+    function saveSettings() {
+        const url = document.getElementById('sheet-url').value.trim();
+        if (url) localStorage.setItem('sheet-url', url);
+        ['Snacks','Drinks','Other'].forEach(cat => {
+            const v = document.getElementById('markup-' + cat)?.value || (cat==='Snacks'?20:cat==='Drinks'?15:10);
+            localStorage.setItem('markup-' + cat, v);
+        });
+        alert("Settings saved!");
+        fetchInventory();
+    }
+
+    function loadSettings() {
+        document.getElementById('sheet-url').value = localStorage.getItem('sheet-url') || '';
+    }
+
+    async function fetchInventory() {
+        const url = localStorage.getItem('sheet-url');
+        if (!url) return elements.saleStatus.textContent = "Set Apps Script URL in Settings";
+        try {
+            const res = await fetch(url, { method: 'POST', body: JSON.stringify({action: "getInventory"}) });
+            if (!res.ok) throw new Error("Fetch failed");
+            inventory = (await res.json()).map(i => ({...i, barcode: String(i.Barcode || i.barcode || '') }));
+            elements.saleStatus.textContent = `Loaded ${inventory.length} items`;
+        } catch (e) {
+            console.error(e);
+            elements.saleStatus.textContent = "Sync failed – check URL";
+        }
+    }
+
+    async function saveStockToCloud() {
+        const url = localStorage.getItem('sheet-url');
+        if (!url) return alert("Set Apps Script URL first!");
+        const data = {
+            barcode: document.getElementById('stock-barcode').value.trim(),
+            name: document.getElementById('stock-name').value.trim(),
+            cost: document.getElementById('stock-cost').value,
+            category: document.getElementById('stock-cat').value
+        };
+        if (!data.name || !data.barcode || !data.cost) return alert("Fill all fields.");
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'text/plain;charset=utf-8'},
+                body: JSON.stringify({action: "addStock", data})
+            });
+            alert("Item added!");
+            fetchInventory();
+            // Clear form
+            ['stock-barcode','stock-name','stock-cost'].forEach(id => document.getElementById(id).value = '');
+        } catch (e) {
+            alert("Save failed.");
+        }
+    }
+</script>
+</body>
+</html>
