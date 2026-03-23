@@ -165,16 +165,36 @@
             isScannerRunning = true;
 
             Quagga.init({
-                inputStream: { name: "Live", type: "LiveStream", target: document.getElementById('interactive'),
-                    constraints: { facingMode: "environment", width: {ideal:1280}, height:{ideal:720} } },
-                locator: { patchSize: "medium", halfSample: true },
-                numOfWorkers: 2,
-                decoder: { readers: ["ean_reader", "code_128_reader", "upc_reader", "code_39_reader"] },
-                locate: true
-            }, err => {
-                if (err) { alert("Scanner error: " + err); stopScanner(); return; }
-                Quagga.start();
-            });
+    inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: document.getElementById('interactive'),
+        constraints: {
+            facingMode: "environment",
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+            aspectRatio: { min: 1, max: 100 },
+            frameRate: { ideal: 30 }
+        }
+    },
+    locator: { patchSize: "medium", halfSample: true },
+    numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
+    frequency: 10,
+    decoder: {
+        readers: ["ean_reader", "code_128_reader", "upc_reader", "code_39_reader", "i2of5_reader"],
+        multiple: false  // Important: only detect one at a time
+    },
+    locate: true
+}, err => {
+    if (err) {
+        console.error("Quagga init error:", err);
+        alert("Scanner failed to start: " + (err.message || err));
+        stopScanner();
+        return;
+    }
+    console.log("Quagga started!");
+    Quagga.start();
+});
 
             Quagga.onDetected(data => {
                 const now = Date.now();
