@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tuckshop POS Free - Level 0</title>
     <link rel="icon" href="data:,">
-    <!-- Latest Quagga2 -->
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.12.1/dist/quagga.min.js"></script>
     <style>
         :root { --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --bg: #f8fafc; --text: #1e293b; --gray: #64748b; }
@@ -158,7 +157,6 @@
 
         if (typeof Quagga === 'undefined') return alert("Scanner library not loaded.");
 
-        // Stop any old camera stream
         if (currentMediaStream) {
             currentMediaStream.getTracks().forEach(track => track.stop());
             currentMediaStream = null;
@@ -228,7 +226,7 @@
 
         } catch (e) {
             console.error("Camera error:", e);
-            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
+            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone and closing other apps.`);
             stopScanner();
         }
     }
@@ -310,22 +308,25 @@
 
     async function fetchInventory() {
         const url = localStorage.getItem('sheet-url');
-        if (!url) return elements.saleStatus.textContent = "Set Apps Script URL in Settings";
+        if (!url) {
+            elements.saleStatus.textContent = "Set Apps Script URL in Settings";
+            return;
+        }
         try {
-            const res = await fetch(url, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({action: "getInventory"}) 
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({action: "getInventory"})
             });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             inventory = (await res.json()).map(i => ({...i, barcode: String(i.Barcode || i.barcode || '') }));
             elements.saleStatus.textContent = `Loaded ${inventory.length} items`;
         } catch (e) {
-            console.error(e);
-            elements.saleStatus.textContent = "Sync failed – check URL";
+            console.error("fetchInventory error:", e);
+            elements.saleStatus.textContent = "Sync failed – check URL or re-deploy script";
         }
     }
 
-    // ==================== FIXED SAVE FUNCTION ====================
     async function saveStockToCloud() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
@@ -350,7 +351,7 @@
         try {
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: "addStock", data: data })
             });
 
@@ -359,7 +360,6 @@
             if (result.success) {
                 alert("✅ Item saved successfully!");
                 fetchInventory();
-                // Clear form
                 document.getElementById('stock-barcode').value = '';
                 document.getElementById('stock-name').value = '';
                 document.getElementById('stock-cost').value = '';
@@ -367,15 +367,13 @@
                 alert("Save failed: " + (result.error || "Unknown error"));
             }
         } catch (e) {
-            console.error(e);
-            alert("Connection error: " + e.message);
+            console.error("Save error:", e);
+            alert("Connection error: " + e.message + "\nMake sure you re-deployed the script as 'Anyone'");
         } finally {
             saveBtn.disabled = false;
             statusEl.textContent = "";
         }
     }
-    // ============================================================
-
 </script>
 </body>
 </html>
