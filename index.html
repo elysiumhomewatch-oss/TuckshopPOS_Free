@@ -283,12 +283,12 @@
         }
     }
 
-    // ==================== FIXED IMPORT MASTER ====================
+    // ==================== FIXED & IMPROVED IMPORT MASTER ====================
     async function importMasterProducts() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL first!");
 
-        if (!confirm("Import all products from Master Database?")) return;
+        if (!confirm("Import all products from Master Database into your shop sheet?")) return;
 
         const statusEl = document.getElementById('sale-status');
         statusEl.textContent = "Importing Master Products... Please wait";
@@ -308,7 +308,6 @@
                 return alert("Master database returned no items.");
             }
 
-            // FIXED: Properly add imported items to local inventory
             const newItems = items.map(item => ({
                 barcode: String(item.Barcode || item.barcode || ""),
                 name: String(item.Name || item.name || ""),
@@ -316,17 +315,42 @@
                 category: String(item.Category || item.category || "Other")
             })).filter(item => item.barcode && item.name);
 
+            // Add to local memory
             inventory = inventory.concat(newItems);
 
-            elements.saleStatus.textContent = `✅ Imported ${newItems.length} products. Total now: ${inventory.length}`;
+            // Save each item to the user's own Inventory sheet
+            for (const item of newItems) {
+                await saveSingleItemToSheet(item);
+            }
+
+            elements.saleStatus.textContent = `✅ Imported and saved ${newItems.length} products to your sheet!`;
             console.log("Imported items:", newItems);
             console.log("Final inventory:", inventory);
 
-            alert(`✅ Successfully imported ${newItems.length} products!\nYou can now search for them.`);
+            alert(`✅ Successfully imported and saved ${newItems.length} products!\nYou can now search and use them.`);
 
         } catch (e) {
             console.error(e);
             alert("Import failed: " + e.message);
+        }
+    }
+
+    // Helper function to save one item to user's sheet
+    async function saveSingleItemToSheet(item) {
+        const url = localStorage.getItem('sheet-url');
+        if (!url) return;
+
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ 
+                    action: "addStock", 
+                    data: item 
+                })
+            });
+        } catch (e) {
+            console.error("Failed to save item to sheet:", item, e);
         }
     }
 
