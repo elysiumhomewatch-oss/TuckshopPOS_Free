@@ -153,118 +153,119 @@
         document.getElementById('nav-' + tab).classList.add('active');
     }
 
+    // ==================== NORMALIZE BARCODE (Remove leading zeros) ====================
+    function normalizeBarcode(barcode) {
+        return String(barcode || "").trim().replace(/^0+/, '');   // Remove all leading zeros
+    }
+
     // Auto-fill when typing or scanning in Stock tab
-    function autoFillFromBarcode(barcode) {
-        if (barcode.length < 3) return;
-        const item = inventory.find(i => String(i.barcode) === String(barcode));
+    function autoFillFromBarcode(inputValue) {
+        if (inputValue.length < 3) return;
+
+        const normalized = normalizeBarcode(inputValue);
+        const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
+
         if (item) {
             document.getElementById('stock-name').value = item.name || "";
             document.getElementById('stock-cost').value = item.cost || "";
             document.getElementById('stock-cat').value = item.category || "Other";
             document.getElementById('stock-status').textContent = "✅ Item found - fields populated";
         } else {
-            document.getElementById('stock-status').textContent = "";
+            // New barcode → clear old fields
+            document.getElementById('stock-name').value = "";
+            document.getElementById('stock-cost').value = "";
+            document.getElementById('stock-cat').value = "Other";
+            document.getElementById('stock-status').textContent = "New item - please fill details";
         }
     }
 
     async function startScanner(mode) {
-    if (dailyCount >= DAILY_LIMIT && mode === 'sale') 
-        return alert("Daily free limit reached. Upgrade for unlimited sales!");
+        if (dailyCount >= DAILY_LIMIT && mode === 'sale') 
+            return alert("Daily free limit reached. Upgrade for unlimited sales!");
 
-    if (typeof Quagga === 'undefined') return alert("Scanner library not loaded.");
+        if (typeof Quagga === 'undefined') return alert("Scanner library not loaded.");
 
-    if (currentMediaStream) {
-        currentMediaStream.getTracks().forEach(track => track.stop());
-        currentMediaStream = null;
-    }
+        if (currentMediaStream) {
+            currentMediaStream.getTracks().forEach(track => track.stop());
+            currentMediaStream = null;
+        }
 
-    currentScanMode = mode;
-    lastDetectionTime = 0;
+        currentScanMode = mode;
+        lastDetectionTime = 0;
 
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-                facingMode: { ideal: "environment" },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            }
-        });
-
-        currentMediaStream = stream;
-
-        document.getElementById('interactive').style.display = 'block';
-        document.getElementById('stop-scan-btn').style.display = 'block';
-        isScannerRunning = true;
-
-        Quagga.init({
-            inputStream: {
-                name: "Live",
-                type: "LiveStream",
-                target: document.getElementById('interactive'),
-                constraints: {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
                     facingMode: { ideal: "environment" },
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 }
-            },
-            locator: { 
-                patchSize: "small",      // Better for small barcodes like Dettol
-                halfSample: true 
-            },
-            numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
-            frequency: 20,               // Scan faster
-            decoder: {
-                readers: [
-                    "ean_reader",        // EAN-8 and EAN-13
-                    "upc_reader",
-                    "code_128_reader",
-                    "code_39_reader",
-                    "i2of5_reader",      // Very common on local products
-                    "code_93_reader",
-                    "codabar_reader"
-                ],
-                multiple: false
-            },
-            locate: true
-        }, (err) => {
-            if (err) {
-                console.error("Quagga init error:", err);
-                alert("Scanner failed to start: " + err);
-                stopScanner();
-                return;
-            }
-            console.log("Quagga started with improved settings for short barcodes");
-            Quagga.start();
-        });
+            });
 
-        Quagga.onDetected((data) => {
-            const now = Date.now();
-            if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
-            lastDetectionTime = now;
+            currentMediaStream = stream;
 
-            const code = data.codeResult.code;
-            if (navigator.vibrate) navigator.vibrate(100);
+            document.getElementById('interactive').style.display = 'block';
+            document.getElementById('stop-scan-btn').style.display = 'block';
+            isScannerRunning = true;
 
-            console.log("Barcode detected:", code);
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.getElementById('interactive'),
+                    constraints: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                },
+                locator: { patchSize: "medium", halfSample: true },
+                numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
+                frequency: 15,
+                decoder: {
+                    readers: [
+                        "ean_reader", "upc_reader", "code_128_reader", 
+                        "code_39_reader", "i2of5_reader", "code_93_reader", "codabar_reader"
+                    ],
+                    multiple: false
+                },
+                locate: true
+            }, (err) => {
+                if (err) {
+                    console.error("Quagga init error:", err);
+                    alert("Scanner failed to start: " + err);
+                    stopScanner();
+                    return;
+                }
+                Quagga.start();
+            });
 
-            if (currentScanMode === 'sale') {
-                addToCart(code);
-                elements.saleStatus.textContent = `Added: ${code}`;
-                setTimeout(stopScanner, 500);
-                incrementDailyCount();
-            } else {
-                document.getElementById('stock-barcode').value = code;
-                autoFillFromBarcode(code);
-                stopScanner();
-            }
-        });
+            Quagga.onDetected((data) => {
+                const now = Date.now();
+                if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
+                lastDetectionTime = now;
 
-    } catch (e) {
-        console.error("Camera error:", e);
-        alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry: Restart phone + good lighting`);
-        stopScanner();
+                let code = data.codeResult.code;
+                if (navigator.vibrate) navigator.vibrate(80);
+
+                if (currentScanMode === 'sale') {
+                    addToCart(code);
+                    elements.saleStatus.textContent = `Added: ${code}`;
+                    setTimeout(stopScanner, 400);
+                    incrementDailyCount();
+                } else {
+                    document.getElementById('stock-barcode').value = code;
+                    autoFillFromBarcode(code);
+                    stopScanner();
+                }
+            });
+
+        } catch (e) {
+            console.error("Camera error:", e);
+            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
+            stopScanner();
+        }
     }
-}
 
     function stopScanner() {
         if (Quagga && isScannerRunning) Quagga.stop();
@@ -298,11 +299,11 @@
             const rawData = await res.json();
 
             inventory = rawData.map(row => ({
-                barcode: String(row.Barcode || row.barcode || ""),
+                barcode: normalizeBarcode(row.Barcode || row.barcode || ""),
                 name: String(row.Name || row.name || ""),
                 cost: parseFloat(row.Cost || row.cost || 0),
                 category: String(row.Category || row.category || "Other")
-            })).filter(item => item.barcode && item.name);
+            })).filter(item => item.barcode);
 
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items`;
         } catch (e) {
@@ -311,11 +312,15 @@
         }
     }
 
+    function normalizeBarcode(barcode) {
+        return String(barcode || "").trim().replace(/^0+/, '');
+    }
+
     async function importMasterProducts() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL first!");
 
-        if (!confirm("Import products from Master Database?\n\nWarning: Prices are NOT included.\nYou must set Cost Price manually.")) return;
+        if (!confirm("Import products from Master Database?\n\nWarning: Prices are NOT included.")) return;
 
         const statusEl = document.getElementById('sale-status');
         statusEl.textContent = "Importing Master Products...";
@@ -336,14 +341,14 @@
             }
 
             let importedCount = 0;
-            const existingBarcodes = new Set(inventory.map(i => String(i.barcode)));
+            const existingBarcodes = new Set(inventory.map(i => normalizeBarcode(i.barcode)));
 
             for (const item of masterItems) {
-                const barcode = String(item.barcode || "").trim();
-                if (!barcode || existingBarcodes.has(barcode)) continue;
+                const normalizedBarcode = normalizeBarcode(item.barcode);
+                if (!normalizedBarcode || existingBarcodes.has(normalizedBarcode)) continue;
 
                 const newItem = {
-                    barcode: barcode,
+                    barcode: normalizedBarcode,
                     name: String(item.name || ""),
                     cost: 0,
                     category: String(item.category || "Other")
@@ -351,7 +356,7 @@
 
                 await saveSingleItemToSheet(newItem);
                 inventory.push(newItem);
-                existingBarcodes.add(barcode);
+                existingBarcodes.add(normalizedBarcode);
                 importedCount++;
             }
 
@@ -378,13 +383,13 @@
         }
     }
 
-    // ==================== SMART SAVE (Update if exists) ====================
     async function saveStockToCloud() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
 
+        let barcode = document.getElementById('stock-barcode').value.trim();
         const data = {
-            barcode: document.getElementById('stock-barcode').value.trim(),
+            barcode: normalizeBarcode(barcode),
             name: document.getElementById('stock-name').value.trim(),
             cost: parseFloat(document.getElementById('stock-cost').value) || 0,
             category: document.getElementById('stock-cat').value
@@ -399,17 +404,6 @@
         statusEl.textContent = "Saving / Updating...";
 
         try {
-            // Check if barcode already exists locally
-            const existingIndex = inventory.findIndex(i => String(i.barcode) === String(data.barcode));
-
-            if (existingIndex !== -1) {
-                // Update local memory
-                inventory[existingIndex] = { ...inventory[existingIndex], ...data };
-            } else {
-                // Add new to local
-                inventory.push(data);
-            }
-
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -419,10 +413,10 @@
             const result = await res.json();
 
             if (result.success) {
-                alert(existingIndex !== -1 ? "✅ Item Updated successfully!" : "✅ New Item saved successfully!");
+                alert("✅ Item saved / updated successfully!");
                 fetchInventory();
-                // Clear form only if it was a new item
-                if (existingIndex === -1) {
+                // Clear form only for new items (we keep data for editing)
+                if (!inventory.some(i => normalizeBarcode(i.barcode) === data.barcode)) {
                     document.getElementById('stock-barcode').value = '';
                     document.getElementById('stock-name').value = '';
                     document.getElementById('stock-cost').value = '';
@@ -443,10 +437,10 @@
             elements.searchResults.style.display = 'none';
             return;
         }
-        const lower = val.toLowerCase();
+        const normalizedSearch = normalizeBarcode(val);
         const filtered = inventory.filter(i => 
-            (i.name || '').toLowerCase().includes(lower) || 
-            String(i.barcode || '').includes(val)
+            (i.name || '').toLowerCase().includes(val.toLowerCase()) || 
+            normalizeBarcode(i.barcode) === normalizedSearch
         );
 
         elements.searchResults.innerHTML = filtered.length ? 
@@ -463,11 +457,11 @@
 
     function addToCart(barcodeStr) {
         if (dailyCount >= DAILY_LIMIT) return alert("Daily limit reached – upgrade!");
-        const barcode = String(barcodeStr);
-        const item = inventory.find(i => String(i.barcode) === barcode);
+        const normalized = normalizeBarcode(barcodeStr);
+        const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
         if (!item) return alert("Item not found.");
         
-        const existing = cart.find(c => String(c.barcode) === barcode);
+        const existing = cart.find(c => normalizeBarcode(c.barcode) === normalized);
         if (existing) existing.qty++;
         else cart.push({ ...item, qty: 1, price: getPrice(item) });
 
