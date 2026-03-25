@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tuckshop POS Free - Level 0</title>
     <link rel="icon" href="data:,">
-    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+    <!-- Latest Quagga2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.12.1/dist/quagga.min.js"></script>
     <style>
         :root { --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --bg: #f8fafc; --text: #1e293b; --gray: #64748b; }
         * { box-sizing: border-box; }
@@ -35,7 +36,7 @@
 
 <div class="container">
     <h2 style="text-align:center; color:var(--primary);">Tuckshop POS Free</h2>
-    <div class="watermark">Free Level 0 – Upgrade for unlimited use, recipes, employees & more!</div>
+    <div class="watermark">Free Level 0 – Upgrade for unlimited use, recipes & employees</div>
 
     <nav>
         <button id="nav-sale" class="active" onclick="showTab('sale')">Sale</button>
@@ -62,7 +63,7 @@
         </div>
         <div id="sale-status" style="color:var(--gray); font-size:14px; margin-top:8px;"></div>
         <div class="upgrade-msg" id="limit-msg" style="display:none;">
-            Daily free limit reached (100 items). Upgrade to continue selling today!
+            Daily free limit reached (100 items). Upgrade to continue!
         </div>
     </div>
 
@@ -83,16 +84,15 @@
 
     <div id="sets-tab" class="tab-content">
         <h2>Settings</h2>
-        <label>Google Apps Script URL (required for cloud sync):</label>
-        <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/AKfycbx9AKjnz2PLNSUh-wNe_1uuPIipUPrScWcpCriiuOwxbeZf3LmYcTW4h0GTTuLXHkVi/exec">
+        <label>Google Apps Script URL:</label>
+        <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
         <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save & Sync</button>
         <div class="upgrade-msg" style="margin-top:20px;">
             <strong>Want more features?</strong><br>
             - Unlimited sales<br>
-            - Takeaways & recipes (kota, vetkoek)<br>
-            - Employee clock-in & pay<br>
-            - Better reports<br>
-            Contact Morney on WhatsApp for Level 1 upgrade!
+            - Takeaways & recipes<br>
+            - Employee management<br>
+            Contact me for upgrade!
         </div>
     </div>
 </div>
@@ -103,8 +103,9 @@
     let isScannerRunning = false;
     let currentScanMode = null;
     let lastDetectionTime = 0;
+    let currentMediaStream = null;
     const DETECTION_COOLDOWN_MS = 1800;
-    const DAILY_LIMIT = 100; // Free tier limit
+    const DAILY_LIMIT = 100;
     let dailyCount = 0;
     let todayKey = 'tuckshop_free_today_' + new Date().toDateString();
 
@@ -117,7 +118,6 @@
         limitMsg: document.getElementById('limit-msg')
     };
 
-    // Load daily count from localStorage
     window.onload = () => {
         loadSettings();
         fetchInventory();
@@ -153,50 +153,61 @@
     }
 
     async function startScanner(mode) {
-        if (dailyCount >= DAILY_LIMIT && mode === 'sale') return alert("Daily free limit reached. Upgrade for unlimited sales!");
-        if (typeof Quagga === 'undefined') return alert("Scanner not loaded.");
+        if (dailyCount >= DAILY_LIMIT && mode === 'sale') 
+            return alert("Daily free limit reached. Upgrade for unlimited sales!");
+
+        if (typeof Quagga === 'undefined') return alert("Scanner library not loaded.");
+
+        // Stop any old camera stream
+        if (currentMediaStream) {
+            currentMediaStream.getTracks().forEach(track => track.stop());
+            currentMediaStream = null;
+        }
+
         currentScanMode = mode;
         lastDetectionTime = 0;
 
         try {
-            await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
+
+            currentMediaStream = stream;
+
             document.getElementById('interactive').style.display = 'block';
             document.getElementById('stop-scan-btn').style.display = 'block';
             isScannerRunning = true;
 
             Quagga.init({
-    inputStream: {
-        name: "Live",
-        type: "LiveStream",
-        target: document.getElementById('interactive'),
-        constraints: {
-            facingMode: "environment",
-            width: { min: 640, ideal: 1280, max: 1920 },
-            height: { min: 480, ideal: 720, max: 1080 },
-            aspectRatio: { min: 1, max: 100 },
-            frameRate: { ideal: 30 }
-        }
-    },
-    locator: { patchSize: "medium", halfSample: true },
-    numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
-    frequency: 10,
-    decoder: {
-        readers: ["ean_reader", "code_128_reader", "upc_reader", "code_39_reader", "i2of5_reader"],
-        multiple: false  // Important: only detect one at a time
-    },
-    locate: true
-}, err => {
-    if (err) {
-        console.error("Quagga init error:", err);
-        alert("Scanner failed to start: " + (err.message || err));
-        stopScanner();
-        return;
-    }
-    console.log("Quagga started!");
-    Quagga.start();
-});
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.getElementById('interactive'),
+                    constraints: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                },
+                locator: { patchSize: "medium", halfSample: true },
+                numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
+                decoder: { readers: ["ean_reader", "code_128_reader", "upc_reader", "code_39_reader"] },
+                locate: true
+            }, (err) => {
+                if (err) {
+                    console.error("Quagga init error:", err);
+                    alert("Scanner failed to start: " + err);
+                    stopScanner();
+                    return;
+                }
+                Quagga.start();
+            });
 
-            Quagga.onDetected(data => {
+            Quagga.onDetected((data) => {
                 const now = Date.now();
                 if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
                 lastDetectionTime = now;
@@ -214,14 +225,20 @@
                     stopScanner();
                 }
             });
+
         } catch (e) {
-            alert("Camera error – check permissions.");
+            console.error("Camera error:", e);
+            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
             stopScanner();
         }
     }
 
     function stopScanner() {
         if (Quagga && isScannerRunning) Quagga.stop();
+        if (currentMediaStream) {
+            currentMediaStream.getTracks().forEach(track => track.stop());
+            currentMediaStream = null;
+        }
         document.getElementById('interactive').style.display = 'none';
         document.getElementById('stop-scan-btn').style.display = 'none';
         isScannerRunning = false;
@@ -276,17 +293,13 @@
     function checkout() {
         if (!cart.length) return;
         const total = elements.grandTotal.textContent;
-        alert(`Checkout complete!\nTotal: ${total}\nThank you!\n\n(Tuckshop POS Free - Level 0)`);
+        alert(`Checkout complete!\nTotal: ${total}\nThank you!\n\n(Tuckshop POS Free)`);
         clearCart();
     }
 
     function saveSettings() {
         const url = document.getElementById('sheet-url').value.trim();
         if (url) localStorage.setItem('sheet-url', url);
-        ['Snacks','Drinks','Other'].forEach(cat => {
-            const v = document.getElementById('markup-' + cat)?.value || (cat==='Snacks'?20:cat==='Drinks'?15:10);
-            localStorage.setItem('markup-' + cat, v);
-        });
         alert("Settings saved!");
         fetchInventory();
     }
@@ -298,74 +311,71 @@
     async function fetchInventory() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return elements.saleStatus.textContent = "Set Apps Script URL in Settings";
-        // Replace the try block with this minimal test
-try {
-    const testBody = JSON.stringify({action: "test", message: "Hello from app"});
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'},
-        body: testBody
-    });
-    const text = await res.text();
-    console.log("Response:", text);
-    alert("Test response: " + text);
-} catch (e) {
-    alert("Fetch error: " + e.message);
-}
-    }
-
-    async function saveStockToCloud() {
-    const url = localStorage.getItem('sheet-url');
-    if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
-
-    const data = {
-        barcode: document.getElementById('stock-barcode').value.trim(),
-        name: document.getElementById('stock-name').value.trim(),
-        cost: parseFloat(document.getElementById('stock-cost').value) || 0,
-        category: document.getElementById('stock-cat').value
-    };
-
-    if (!data.name || !data.barcode) {
-        return alert("Barcode and Item Name are required!");
-    }
-
-    const saveBtn = document.getElementById('save-stock-btn');
-    const statusEl = document.getElementById('stock-status');
-
-    saveBtn.disabled = true;
-    statusEl.textContent = "Saving to Google Sheet...";
-
-    try {
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                action: "addStock", 
-                data: data 
-            })
-        });
-
-        const result = await res.json();
-        console.log("Server response:", result);
-
-        if (result.success) {
-            alert("✅ Item saved successfully!");
-            fetchInventory();   // Refresh inventory list
-            // Clear form
-            document.getElementById('stock-barcode').value = '';
-            document.getElementById('stock-name').value = '';
-            document.getElementById('stock-cost').value = '';
-        } else {
-            alert("Save failed: " + (result.error || JSON.stringify(result)));
+        try {
+            const res = await fetch(url, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({action: "getInventory"}) 
+            });
+            inventory = (await res.json()).map(i => ({...i, barcode: String(i.Barcode || i.barcode || '') }));
+            elements.saleStatus.textContent = `Loaded ${inventory.length} items`;
+        } catch (e) {
+            console.error(e);
+            elements.saleStatus.textContent = "Sync failed – check URL";
         }
-    } catch (e) {
-        console.error(e);
-        alert("Connection error: " + e.message);
-    } finally {
-        saveBtn.disabled = false;
-        statusEl.textContent = "";
     }
-}
+
+    // ==================== FIXED SAVE FUNCTION ====================
+    async function saveStockToCloud() {
+        const url = localStorage.getItem('sheet-url');
+        if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
+
+        const data = {
+            barcode: document.getElementById('stock-barcode').value.trim(),
+            name: document.getElementById('stock-name').value.trim(),
+            cost: parseFloat(document.getElementById('stock-cost').value) || 0,
+            category: document.getElementById('stock-cat').value
+        };
+
+        if (!data.name || !data.barcode) {
+            return alert("Barcode and Item Name are required!");
+        }
+
+        const saveBtn = document.getElementById('save-stock-btn');
+        const statusEl = document.getElementById('stock-status');
+
+        saveBtn.disabled = true;
+        statusEl.textContent = "Saving...";
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: "addStock", data: data })
+            });
+
+            const result = await res.json();
+
+            if (result.success) {
+                alert("✅ Item saved successfully!");
+                fetchInventory();
+                // Clear form
+                document.getElementById('stock-barcode').value = '';
+                document.getElementById('stock-name').value = '';
+                document.getElementById('stock-cost').value = '';
+            } else {
+                alert("Save failed: " + (result.error || "Unknown error"));
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Connection error: " + e.message);
+        } finally {
+            saveBtn.disabled = false;
+            statusEl.textContent = "";
+        }
+    }
+    // ============================================================
+
 </script>
 </body>
 </html>
