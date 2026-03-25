@@ -42,6 +42,8 @@
         .watermark { color: #94a3b8; font-size: 13px; text-align: center; margin: 16px 0; }
         .upgrade-msg { background: #fef3c7; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 15px; }
         .status { color: var(--gray); font-size: 14px; margin-top: 8px; }
+        .markup-group { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .markup-group label { flex: 0 0 100px; font-weight: 500; }
     </style>
 </head>
 <body>
@@ -104,13 +106,28 @@
         <label>Google Apps Script URL:</label>
         <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
         
-        <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save & Sync</button>
+        <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save URL & Sync</button>
         <button class="btn btn-gray" style="margin-top:8px;" onclick="fetchInventoryFromSheet()">Refresh Inventory from Sheet</button>
         <button class="btn btn-save" style="margin-top:8px;" onclick="importMasterProducts()">Import Master Products</button>
-        
+
+        <h3 style="margin-top:24px;">Category Markups (%)</h3>
+        <div class="markup-group">
+            <label>Snacks:</label>
+            <input type="number" id="markup-Snacks" value="20" min="0">
+        </div>
+        <div class="markup-group">
+            <label>Drinks:</label>
+            <input type="number" id="markup-Drinks" value="15" min="0">
+        </div>
+        <div class="markup-group">
+            <label>Other:</label>
+            <input type="number" id="markup-Other" value="10" min="0">
+        </div>
+        <button class="btn" style="background:#334155; color:white;" onclick="saveMarkups()">Save Markups</button>
+
         <div class="upgrade-msg" style="margin-top:20px;">
             <strong>Note:</strong><br>
-            Items are saved locally. Use "Refresh from Sheet" to pull latest from cloud.
+            Changing markups will automatically update selling prices for all items.
         </div>
     </div>
 </div>
@@ -136,9 +153,9 @@
         limitMsg: document.getElementById('limit-msg')
     };
 
-    // Load from localStorage on start
     window.onload = () => {
         loadSettings();
+        loadMarkups();
         loadInventoryFromLocal();
         renderCart();
         dailyCount = parseInt(localStorage.getItem(todayKey) || '0');
@@ -175,22 +192,28 @@
         return String(barcode || "").trim().replace(/^0+/, '');
     }
 
-    // Load inventory from localStorage
-    function loadInventoryFromLocal() {
-        const saved = localStorage.getItem('tuckshop_inventory');
-        if (saved) {
-            inventory = JSON.parse(saved);
-            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from device`;
-        } else {
-            elements.saleStatus.textContent = "No local data yet. Click Refresh from Sheet.";
-        }
+    // ==================== MARKUP MANAGEMENT ====================
+    function loadMarkups() {
+        document.getElementById('markup-Snacks').value = localStorage.getItem('markup-Snacks') || 20;
+        document.getElementById('markup-Drinks').value = localStorage.getItem('markup-Drinks') || 15;
+        document.getElementById('markup-Other').value = localStorage.getItem('markup-Other') || 10;
     }
 
-    // Save inventory to localStorage
-    function saveInventoryToLocal() {
-        localStorage.setItem('tuckshop_inventory', JSON.stringify(inventory));
+    function saveMarkups() {
+        localStorage.setItem('markup-Snacks', document.getElementById('markup-Snacks').value);
+        localStorage.setItem('markup-Drinks', document.getElementById('markup-Drinks').value);
+        localStorage.setItem('markup-Other', document.getElementById('markup-Other').value);
+        alert("Markups saved! Prices will update automatically.");
+        renderCart(); // Refresh cart with new prices
     }
 
+    function getPrice(item) {
+        const cat = item.category || 'Other';
+        const markup = parseFloat(localStorage.getItem('markup-' + cat)) || 20;
+        return (Number(item.cost || 0) * (1 + markup / 100)).toFixed(2);
+    }
+
+    // Auto-fill when typing barcode
     function autoFillFromBarcode(inputValue) {
         if (inputValue.length < 3) return;
         const normalized = normalizeBarcode(inputValue);
@@ -245,7 +268,6 @@
         }
     }
 
-    // Hide dropdown when clicking outside
     document.addEventListener('click', function(e) {
         const resultsDiv = document.getElementById('stock-search-results');
         if (!e.target.closest('#stock-barcode') && !e.target.closest('#stock-search-results')) {
@@ -349,7 +371,6 @@
         isScannerRunning = false;
     }
 
-    // Only load from sheet when user clicks "Refresh Inventory Now"
     async function fetchInventoryFromSheet() {
         const url = localStorage.getItem('sheet-url');
         if (!url) {
@@ -377,7 +398,7 @@
                 category: String(row.Category || row.category || "Other")
             })).filter(item => item.barcode);
 
-            saveInventoryToLocal();   // Save to localStorage
+            saveInventoryToLocal();
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from sheet`;
         } catch (e) {
             console.error("Fetch error:", e);
@@ -385,18 +406,16 @@
         }
     }
 
-    // Load from localStorage
     function loadInventoryFromLocal() {
         const saved = localStorage.getItem('tuckshop_inventory');
         if (saved) {
             inventory = JSON.parse(saved);
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from device`;
         } else {
-            elements.saleStatus.textContent = "No local data yet. Click Refresh from Sheet.";
+            elements.saleStatus.textContent = "No local data yet.";
         }
     }
 
-    // Save to localStorage
     function saveInventoryToLocal() {
         localStorage.setItem('tuckshop_inventory', JSON.stringify(inventory));
     }
@@ -500,7 +519,7 @@
 
             if (result.success) {
                 alert("✅ Item saved / updated successfully!");
-                // Update local inventory
+                // Update or add to local inventory
                 const index = inventory.findIndex(i => normalizeBarcode(i.barcode) === data.barcode);
                 if (index !== -1) {
                     inventory[index] = { ...inventory[index], ...data };
@@ -508,7 +527,7 @@
                     inventory.push(data);
                 }
                 saveInventoryToLocal();
-                fetchInventory(); // Refresh display
+                fetchInventory(); 
             } else {
                 alert("Save failed: " + (result.error || "Unknown error"));
             }
@@ -535,12 +554,6 @@
             filtered.map(i => `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">${i.name} (R${getPrice(i)})</div>`).join('') :
             `<div style="padding:12px;color:#888;">No matching items found</div>`;
         elements.searchResults.style.display = 'block';
-    }
-
-    function getPrice(item) {
-        const cat = item.category || 'Other';
-        const markup = parseFloat(localStorage.getItem('markup-' + cat)) || 20;
-        return (Number(item.cost || 0) * (1 + markup / 100)).toFixed(2);
     }
 
     function addToCart(barcodeStr) {
