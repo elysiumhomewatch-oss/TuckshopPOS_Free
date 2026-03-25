@@ -154,7 +154,97 @@
         document.getElementById('nav-' + tab).classList.add('active');
     }
 
-    // ==================== IMPROVED FETCH INVENTORY ====================
+    async function startScanner(mode) {
+        if (dailyCount >= DAILY_LIMIT && mode === 'sale') 
+            return alert("Daily free limit reached. Upgrade for unlimited sales!");
+
+        if (typeof Quagga === 'undefined') return alert("Scanner library not loaded.");
+
+        if (currentMediaStream) {
+            currentMediaStream.getTracks().forEach(track => track.stop());
+            currentMediaStream = null;
+        }
+
+        currentScanMode = mode;
+        lastDetectionTime = 0;
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
+
+            currentMediaStream = stream;
+
+            document.getElementById('interactive').style.display = 'block';
+            document.getElementById('stop-scan-btn').style.display = 'block';
+            isScannerRunning = true;
+
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.getElementById('interactive'),
+                    constraints: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                },
+                locator: { patchSize: "medium", halfSample: true },
+                numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
+                decoder: { readers: ["ean_reader", "code_128_reader", "upc_reader", "code_39_reader"] },
+                locate: true
+            }, (err) => {
+                if (err) {
+                    console.error("Quagga init error:", err);
+                    alert("Scanner failed to start: " + err);
+                    stopScanner();
+                    return;
+                }
+                Quagga.start();
+            });
+
+            Quagga.onDetected((data) => {
+                const now = Date.now();
+                if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
+                lastDetectionTime = now;
+
+                const code = data.codeResult.code;
+                if (navigator.vibrate) navigator.vibrate(80);
+
+                if (currentScanMode === 'sale') {
+                    addToCart(code);
+                    elements.saleStatus.textContent = `Added: ${code}`;
+                    setTimeout(stopScanner, 400);
+                    incrementDailyCount();
+                } else {
+                    document.getElementById('stock-barcode').value = code;
+                    stopScanner();
+                }
+            });
+
+        } catch (e) {
+            console.error("Camera error:", e);
+            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone and closing other apps.`);
+            stopScanner();
+        }
+    }
+
+    function stopScanner() {
+        if (Quagga && isScannerRunning) Quagga.stop();
+        if (currentMediaStream) {
+            currentMediaStream.getTracks().forEach(track => track.stop());
+            currentMediaStream = null;
+        }
+        document.getElementById('interactive').style.display = 'none';
+        document.getElementById('stop-scan-btn').style.display = 'none';
+        isScannerRunning = false;
+    }
+
     async function fetchInventory() {
         const url = localStorage.getItem('sheet-url');
         if (!url) {
@@ -175,7 +265,7 @@
 
             const rawData = await res.json();
 
-            // Robust parsing - handles different column name cases
+            // Robust parsing for Google Sheets
             inventory = rawData.map(row => {
                 return {
                     barcode: String(row.Barcode || row.barcode || row.BARCODE || ""),
@@ -183,18 +273,15 @@
                     cost: parseFloat(row.Cost || row.cost || row.COST || 0),
                     category: String(row.Category || row.category || row.CATEGORY || "Other")
                 };
-            }).filter(item => item.barcode && item.name);   // remove empty rows
+            }).filter(item => item.barcode && item.name);
 
-            console.log("Inventory loaded:", inventory);
+            console.log("Inventory loaded successfully:", inventory);
 
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from sheet`;
-            
-            // Optional: Show first few items in console for debugging
-            if (inventory.length > 0) console.table(inventory.slice(0, 5));
 
         } catch (e) {
             console.error("Fetch error:", e);
-            elements.saleStatus.textContent = "❌ Failed to load inventory – check URL";
+            elements.saleStatus.textContent = "❌ Failed to load inventory – check URL and re-deploy script";
         }
     }
 
@@ -231,7 +318,7 @@
         if (dailyCount >= DAILY_LIMIT) return alert("Daily limit reached – upgrade!");
         const barcode = String(barcodeStr);
         const item = inventory.find(i => String(i.barcode) === barcode);
-        if (!item) return alert("Item not found in memory. Try Refresh Inventory.");
+        if (!item) return alert("Item not found. Please click 'Refresh Inventory Now' in Settings.");
         
         const existing = cart.find(c => String(c.barcode) === barcode);
         if (existing) existing.qty++;
@@ -275,7 +362,6 @@
         document.getElementById('sheet-url').value = localStorage.getItem('sheet-url') || '';
     }
 
-    // ==================== SAVE TO CLOUD ====================
     async function saveStockToCloud() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
@@ -308,8 +394,7 @@
 
             if (result.success) {
                 alert("✅ Item saved successfully!");
-                fetchInventory();   // Refresh immediately
-                // Clear form
+                fetchInventory();
                 document.getElementById('stock-barcode').value = '';
                 document.getElementById('stock-name').value = '';
                 document.getElementById('stock-cost').value = '';
@@ -324,14 +409,6 @@
             statusEl.textContent = "";
         }
     }
-
-    // Camera functions (unchanged from previous working version)
-    async function startScanner(mode) { /* ... same as last version ... */ }
-    function stopScanner() { /* ... same as last version ... */ }
-
-    // Paste the full startScanner and stopScanner from the previous message if needed
-    // (They are long, so I kept them out here to save space - let me know if you need them again)
-
 </script>
 </body>
 </html>
