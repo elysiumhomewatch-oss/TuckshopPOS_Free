@@ -274,8 +274,8 @@
                 category: String(row.Category || row.category || "Other")
             })).filter(item => item.barcode && item.name);
 
-            console.log("Inventory loaded:", inventory);
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items`;
+            console.log("Current inventory:", inventory);
 
         } catch (e) {
             console.error("Fetch error:", e);
@@ -283,17 +283,15 @@
         }
     }
 
-    // ==================== IMPORT MASTER PRODUCTS ====================
+    // ==================== FIXED IMPORT MASTER ====================
     async function importMasterProducts() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL first!");
 
-        if (!confirm("Import all products from the Master Database?\nThis may take a few seconds.")) {
-            return;
-        }
+        if (!confirm("Import all products from Master Database?")) return;
 
         const statusEl = document.getElementById('sale-status');
-        statusEl.textContent = "Importing Master Products... Please wait...";
+        statusEl.textContent = "Importing Master Products... Please wait";
 
         try {
             const res = await fetch(url, {
@@ -307,15 +305,25 @@
             const items = await res.json();
 
             if (!Array.isArray(items) || items.length === 0) {
-                return alert("Master database is empty or could not be loaded.");
+                return alert("Master database returned no items.");
             }
 
-            alert(`✅ Successfully imported ${items.length} products from the Master Database!`);
-            fetchInventory();   // Refresh local list
+            alert(`✅ Imported ${items.length} products from Master Database!`);
+
+            // Add all items to local inventory immediately
+            inventory = inventory.concat(items.map(item => ({
+                barcode: String(item.Barcode || item.barcode || ""),
+                name: String(item.Name || item.name || ""),
+                cost: parseFloat(item.Cost || item.cost || 0),
+                category: String(item.Category || item.category || "Other")
+            })));
+
+            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items (including imported)`;
+            console.log("Imported items:", items);
 
         } catch (e) {
             console.error(e);
-            alert("Import failed: " + e.message + "\nMake sure you re-deployed the script after adding the scope.");
+            alert("Import failed: " + e.message);
         }
     }
 
@@ -330,15 +338,9 @@
             String(i.barcode || '').includes(val)
         );
 
-        if (filtered.length === 0) {
-            elements.searchResults.innerHTML = `<div style="padding:12px;color:#888;">No matching items found</div>`;
-        } else {
-            elements.searchResults.innerHTML = filtered.map(i => 
-                `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">
-                    ${i.name} (R${getPrice(i)})
-                </div>`
-            ).join('');
-        }
+        elements.searchResults.innerHTML = filtered.length ? 
+            filtered.map(i => `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">${i.name} (R${getPrice(i)})</div>`).join('') :
+            `<div style="padding:12px;color:#888;">No matching items found</div>`;
         elements.searchResults.style.display = 'block';
     }
 
@@ -352,7 +354,7 @@
         if (dailyCount >= DAILY_LIMIT) return alert("Daily limit reached – upgrade!");
         const barcode = String(barcodeStr);
         const item = inventory.find(i => String(i.barcode) === barcode);
-        if (!item) return alert("Item not found. Please click 'Refresh Inventory Now'.");
+        if (!item) return alert("Item not found.");
         
         const existing = cart.find(c => String(c.barcode) === barcode);
         if (existing) existing.qty++;
@@ -407,9 +409,7 @@
             category: document.getElementById('stock-cat').value
         };
 
-        if (!data.name || !data.barcode) {
-            return alert("Barcode and Item Name are required!");
-        }
+        if (!data.name || !data.barcode) return alert("Barcode and Item Name are required!");
 
         const saveBtn = document.getElementById('save-stock-btn');
         const statusEl = document.getElementById('stock-status');
@@ -436,7 +436,6 @@
                 alert("Save failed: " + (result.error || "Unknown error"));
             }
         } catch (e) {
-            console.error(e);
             alert("Connection error: " + e.message);
         } finally {
             saveBtn.disabled = false;
