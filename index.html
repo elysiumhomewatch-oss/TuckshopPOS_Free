@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tuckshop POS Free - Level 0</title>
+    <title>Tuckshop POS Free</title>
     <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.12.1/dist/quagga.min.js"></script>
     <style>
@@ -103,11 +103,12 @@
 
     <div id="sets-tab" class="tab-content">
         <h2>Settings</h2>
-        <label>Google Apps Script URL:</label>
-        <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
         
-        <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save URL & Sync</button>
-        <button class="btn btn-gray" style="margin-top:8px;" onclick="fetchInventoryFromSheet()">Refresh Inventory from Sheet</button>
+        <label>Your Google Sheet URL:</label>
+        <input type="text" id="user-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="margin-bottom:12px;">
+        
+        <button class="btn" style="background:#334155; color:white;" onclick="saveUserSheetURL()">Save My Sheet & Sync</button>
+        <button class="btn btn-gray" style="margin-top:8px;" onclick="fetchInventoryFromSheet()">Refresh Inventory from My Sheet</button>
         <button class="btn btn-save" style="margin-top:8px;" onclick="importMasterProducts()">Import Master Products</button>
 
         <h3 style="margin-top:24px;">Category Markups (%)</h3>
@@ -127,12 +128,17 @@
 
         <div class="upgrade-msg" style="margin-top:20px;">
             <strong>Note:</strong><br>
-            Changing markups will automatically update selling prices for all items.
+            • Your data is saved locally on this device.<br>
+            • Prices from Master Import are 0 — set them manually.
         </div>
     </div>
 </div>
 
 <script>
+    // ==================== HARDCODED APPS SCRIPT URL ====================
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx9AKjnz2PLNSUh-wNe_1uuPIipUPrScWcpCriiuOwxbeZf3LmYcTW4h0GTTuLXHkVi/exec"; 
+    // ←←← Replace above with your actual deployed Apps Script URL
+
     let inventory = [];
     let cart = [];
     let isScannerRunning = false;
@@ -192,28 +198,6 @@
         return String(barcode || "").trim().replace(/^0+/, '');
     }
 
-    // ==================== MARKUP MANAGEMENT ====================
-    function loadMarkups() {
-        document.getElementById('markup-Snacks').value = localStorage.getItem('markup-Snacks') || 20;
-        document.getElementById('markup-Drinks').value = localStorage.getItem('markup-Drinks') || 15;
-        document.getElementById('markup-Other').value = localStorage.getItem('markup-Other') || 10;
-    }
-
-    function saveMarkups() {
-        localStorage.setItem('markup-Snacks', document.getElementById('markup-Snacks').value);
-        localStorage.setItem('markup-Drinks', document.getElementById('markup-Drinks').value);
-        localStorage.setItem('markup-Other', document.getElementById('markup-Other').value);
-        alert("Markups saved! Prices will update automatically.");
-        renderCart(); // Refresh cart with new prices
-    }
-
-    function getPrice(item) {
-        const cat = item.category || 'Other';
-        const markup = parseFloat(localStorage.getItem('markup-' + cat)) || 20;
-        return (Number(item.cost || 0) * (1 + markup / 100)).toFixed(2);
-    }
-
-    // Auto-fill when typing barcode
     function autoFillFromBarcode(inputValue) {
         if (inputValue.length < 3) return;
         const normalized = normalizeBarcode(inputValue);
@@ -371,41 +355,7 @@
         isScannerRunning = false;
     }
 
-    async function fetchInventoryFromSheet() {
-        const url = localStorage.getItem('sheet-url');
-        if (!url) {
-            elements.saleStatus.textContent = "⚠️ Set Apps Script URL in Settings";
-            return;
-        }
-
-        elements.saleStatus.textContent = "Loading from Google Sheet...";
-
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "getInventory" })
-            });
-
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-            const rawData = await res.json();
-
-            inventory = rawData.map(row => ({
-                barcode: normalizeBarcode(row.Barcode || row.barcode || ""),
-                name: String(row.Name || row.name || ""),
-                cost: parseFloat(row.Cost || row.cost || 0),
-                category: String(row.Category || row.category || "Other")
-            })).filter(item => item.barcode);
-
-            saveInventoryToLocal();
-            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from sheet`;
-        } catch (e) {
-            console.error("Fetch error:", e);
-            elements.saleStatus.textContent = "❌ Failed to load from sheet";
-        }
-    }
-
+    // Load inventory from localStorage (default on start)
     function loadInventoryFromLocal() {
         const saved = localStorage.getItem('tuckshop_inventory');
         if (saved) {
@@ -420,9 +370,48 @@
         localStorage.setItem('tuckshop_inventory', JSON.stringify(inventory));
     }
 
+    // Only load from sheet when user clicks Refresh
+    async function fetchInventoryFromSheet() {
+        const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+        if (!sheetUrl) {
+            alert("Please enter your Google Sheet URL first.");
+            return;
+        }
+
+        elements.saleStatus.textContent = "Loading from your Google Sheet...";
+
+        try {
+            const res = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ 
+                    action: "getInventory",
+                    sheetUrl: sheetUrl 
+                })
+            });
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const rawData = await res.json();
+
+            inventory = rawData.map(row => ({
+                barcode: normalizeBarcode(row.Barcode || row.barcode || ""),
+                name: String(row.Name || row.name || ""),
+                cost: parseFloat(row.Cost || row.cost || 0),
+                category: String(row.Category || row.category || "Other")
+            })).filter(item => item.barcode);
+
+            saveInventoryToLocal();
+            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from your sheet`;
+        } catch (e) {
+            console.error("Fetch error:", e);
+            elements.saleStatus.textContent = "❌ Failed to load from sheet";
+        }
+    }
+
     async function importMasterProducts() {
-        const url = localStorage.getItem('sheet-url');
-        if (!url) return alert("Please set the Google Apps Script URL first!");
+        const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+        if (!sheetUrl) return alert("Please enter your Google Sheet URL first!");
 
         if (!confirm("Import products from Master Database?\n\nWarning: Prices are NOT included.")) return;
 
@@ -430,10 +419,13 @@
         statusEl.textContent = "Importing Master Products...";
 
         try {
-            const res = await fetch(url, {
+            const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "importMaster" })
+                body: JSON.stringify({ 
+                    action: "importMaster",
+                    sheetUrl: sheetUrl 
+                })
             });
 
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -475,13 +467,17 @@
     }
 
     async function saveSingleItemToSheet(item) {
-        const url = localStorage.getItem('sheet-url');
-        if (!url) return;
+        const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+        if (!sheetUrl) return;
         try {
-            await fetch(url, {
+            await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "addStock", data: item })
+                body: JSON.stringify({ 
+                    action: "addStock", 
+                    data: item,
+                    sheetUrl: sheetUrl 
+                })
             });
         } catch (e) {
             console.error("Failed to save item:", e);
@@ -489,8 +485,8 @@
     }
 
     async function saveStockToCloud() {
-        const url = localStorage.getItem('sheet-url');
-        if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
+        const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+        if (!sheetUrl) return alert("Please enter your Google Sheet URL in Settings first!");
 
         let barcode = document.getElementById('stock-barcode').value.trim();
         const data = {
@@ -509,17 +505,20 @@
         statusEl.textContent = "Saving / Updating...";
 
         try {
-            const res = await fetch(url, {
+            const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "addStock", data: data })
+                body: JSON.stringify({ 
+                    action: "addStock", 
+                    data: data,
+                    sheetUrl: sheetUrl 
+                })
             });
 
             const result = await res.json();
 
             if (result.success) {
                 alert("✅ Item saved / updated successfully!");
-                // Update or add to local inventory
                 const index = inventory.findIndex(i => normalizeBarcode(i.barcode) === data.barcode);
                 if (index !== -1) {
                     inventory[index] = { ...inventory[index], ...data };
@@ -554,6 +553,12 @@
             filtered.map(i => `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">${i.name} (R${getPrice(i)})</div>`).join('') :
             `<div style="padding:12px;color:#888;">No matching items found</div>`;
         elements.searchResults.style.display = 'block';
+    }
+
+    function getPrice(item) {
+        const cat = item.category || 'Other';
+        const markup = parseFloat(localStorage.getItem('markup-' + cat)) || 20;
+        return (Number(item.cost || 0) * (1 + markup / 100)).toFixed(2);
     }
 
     function addToCart(barcodeStr) {
@@ -594,13 +599,29 @@
     }
 
     function saveSettings() {
-        const url = document.getElementById('sheet-url').value.trim();
-        if (url) localStorage.setItem('sheet-url', url);
-        alert("Settings saved!");
+        const url = document.getElementById('user-sheet-url').value.trim();
+        if (url) {
+            localStorage.setItem('user-sheet-url', url);
+            alert("Your Sheet URL saved!");
+        }
     }
 
     function loadSettings() {
-        document.getElementById('sheet-url').value = localStorage.getItem('sheet-url') || '';
+        document.getElementById('user-sheet-url').value = localStorage.getItem('user-sheet-url') || '';
+    }
+
+    function loadMarkups() {
+        document.getElementById('markup-Snacks').value = localStorage.getItem('markup-Snacks') || 20;
+        document.getElementById('markup-Drinks').value = localStorage.getItem('markup-Drinks') || 15;
+        document.getElementById('markup-Other').value = localStorage.getItem('markup-Other') || 10;
+    }
+
+    function saveMarkups() {
+        localStorage.setItem('markup-Snacks', document.getElementById('markup-Snacks').value);
+        localStorage.setItem('markup-Drinks', document.getElementById('markup-Drinks').value);
+        localStorage.setItem('markup-Other', document.getElementById('markup-Other').value);
+        alert("Markups saved! Prices updated.");
+        renderCart();
     }
 </script>
 </body>
