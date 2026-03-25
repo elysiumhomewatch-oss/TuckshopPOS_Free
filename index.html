@@ -25,12 +25,23 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-gray { background: var(--gray); color: white; }
         .cart-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
-        #search-results { position: absolute; background: white; width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; max-height: 220px; overflow-y: auto; z-index: 10; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        #search-results, #stock-search-results { 
+            position: absolute; 
+            background: white; 
+            width: 100%; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 10px; 
+            max-height: 220px; 
+            overflow-y: auto; 
+            z-index: 15; 
+            display: none; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
         .search-row { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .search-row:hover { background: #f8fafc; }
         .watermark { color: #94a3b8; font-size: 13px; text-align: center; margin: 16px 0; }
         .upgrade-msg { background: #fef3c7; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 15px; }
         .status { color: var(--gray); font-size: 14px; margin-top: 8px; }
-        #stock-search-results { position: absolute; background: white; width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; max-height: 200px; overflow-y: auto; z-index: 15; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -116,15 +127,6 @@
     let dailyCount = 0;
     let todayKey = 'tuckshop_free_today_' + new Date().toDateString();
 
-    const elements = {
-        manualSearch: document.getElementById('manual-search'),
-        searchResults: document.getElementById('search-results'),
-        cartList: document.getElementById('cart-items-list'),
-        grandTotal: document.getElementById('grand-total'),
-        saleStatus: document.getElementById('sale-status'),
-        limitMsg: document.getElementById('limit-msg')
-    };
-
     window.onload = () => {
         loadSettings();
         fetchInventory();
@@ -134,14 +136,15 @@
     };
 
     function checkDailyLimit() {
+        const limitMsg = document.getElementById('limit-msg');
         if (dailyCount >= DAILY_LIMIT) {
-            elements.limitMsg.style.display = 'block';
+            limitMsg.style.display = 'block';
             document.getElementById('scan-btn').disabled = true;
-            elements.manualSearch.disabled = true;
+            document.getElementById('manual-search').disabled = true;
         } else {
-            elements.limitMsg.style.display = 'none';
+            limitMsg.style.display = 'none';
             document.getElementById('scan-btn').disabled = false;
-            elements.manualSearch.disabled = false;
+            document.getElementById('manual-search').disabled = false;
         }
     }
 
@@ -159,12 +162,10 @@
         document.getElementById('nav-' + tab).classList.add('active');
     }
 
-    // ==================== NORMALIZE BARCODE ====================
     function normalizeBarcode(barcode) {
         return String(barcode || "").trim().replace(/^0+/, '');
     }
 
-    // Auto-fill when typing barcode in Stock tab
     function autoFillFromBarcode(inputValue) {
         if (inputValue.length < 3) return;
         const normalized = normalizeBarcode(inputValue);
@@ -199,7 +200,7 @@
         );
 
         if (filtered.length === 0) {
-            resultsDiv.innerHTML = `<div style="padding:12px;color:#888;">No matching items</div>`;
+            resultsDiv.innerHTML = `<div style="padding:12px;color:#888;">No matching items found</div>`;
         } else {
             resultsDiv.innerHTML = filtered.map(i => 
                 `<div class="search-row" onclick="selectStockItem('${String(i.barcode)}')">
@@ -210,7 +211,6 @@
         resultsDiv.style.display = 'block';
     }
 
-    // Select item from dropdown and fill form
     function selectStockItem(barcode) {
         const normalized = normalizeBarcode(barcode);
         const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
@@ -223,6 +223,14 @@
             document.getElementById('stock-status').textContent = "✅ Item loaded for editing";
         }
     }
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const resultsDiv = document.getElementById('stock-search-results');
+        if (!e.target.closest('#stock-barcode') && !e.target.closest('#stock-search-results')) {
+            resultsDiv.style.display = 'none';
+        }
+    });
 
     async function startScanner(mode) {
         if (dailyCount >= DAILY_LIMIT && mode === 'sale') 
@@ -354,44 +362,6 @@
         }
     }
 
-    // ==================== STOCK SEARCH DROPDOWN (as requested) ====================
-    function handleStockSearch(val) {
-        const resultsDiv = document.getElementById('stock-search-results');
-        if (val.length < 2) {
-            resultsDiv.style.display = 'none';
-            return;
-        }
-
-        const lower = val.toLowerCase();
-        const normalized = normalizeBarcode(val);
-
-        const filtered = inventory.filter(i => 
-            (i.name || '').toLowerCase().includes(lower) || 
-            normalizeBarcode(i.barcode) === normalized
-        );
-
-        resultsDiv.innerHTML = filtered.map(i => 
-            `<div class="search-row" onclick="selectStockItem('${String(i.barcode)}')">
-                ${i.name} (${i.barcode})
-            </div>`
-        ).join('');
-
-        resultsDiv.style.display = filtered.length ? 'block' : 'none';
-    }
-
-    function selectStockItem(barcode) {
-        const normalized = normalizeBarcode(barcode);
-        const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
-        if (item) {
-            document.getElementById('stock-barcode').value = item.barcode;
-            document.getElementById('stock-name').value = item.name || "";
-            document.getElementById('stock-cost').value = item.cost || "";
-            document.getElementById('stock-cat').value = item.category || "Other";
-            document.getElementById('stock-search-results').style.display = 'none';
-            document.getElementById('stock-status').textContent = "✅ Item loaded for editing";
-        }
-    }
-
     async function importMasterProducts() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL first!");
@@ -491,7 +461,6 @@
             if (result.success) {
                 alert("✅ Item saved / updated successfully!");
                 fetchInventory();
-                // Clear form only for new items
                 if (!inventory.some(i => normalizeBarcode(i.barcode) === data.barcode)) {
                     document.getElementById('stock-barcode').value = '';
                     document.getElementById('stock-name').value = '';
