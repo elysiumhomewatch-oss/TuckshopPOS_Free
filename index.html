@@ -168,85 +168,102 @@
     }
 
     async function startScanner(mode) {
-        if (dailyCount >= DAILY_LIMIT && mode === 'sale') 
-            return alert("Daily free limit reached. Upgrade for unlimited sales!");
+    if (dailyCount >= DAILY_LIMIT && mode === 'sale') 
+        return alert("Daily free limit reached. Upgrade for unlimited sales!");
 
-        if (typeof Quagga === 'undefined') return alert("Scanner library not loaded.");
+    if (typeof Quagga === 'undefined') return alert("Scanner library not loaded.");
 
-        if (currentMediaStream) {
-            currentMediaStream.getTracks().forEach(track => track.stop());
-            currentMediaStream = null;
-        }
+    if (currentMediaStream) {
+        currentMediaStream.getTracks().forEach(track => track.stop());
+        currentMediaStream = null;
+    }
 
-        currentScanMode = mode;
-        lastDetectionTime = 0;
+    currentScanMode = mode;
+    lastDetectionTime = 0;
 
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
+
+        currentMediaStream = stream;
+
+        document.getElementById('interactive').style.display = 'block';
+        document.getElementById('stop-scan-btn').style.display = 'block';
+        isScannerRunning = true;
+
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.getElementById('interactive'),
+                constraints: {
                     facingMode: { ideal: "environment" },
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 }
-            });
+            },
+            locator: { 
+                patchSize: "medium", 
+                halfSample: true 
+            },
+            numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
+            frequency: 15,                    // Scan more often
+            decoder: {
+                readers: [
+                    "ean_reader",           // EAN-8 / EAN-13
+                    "upc_reader",           // UPC-A
+                    "code_128_reader",      // Code 128 (very common)
+                    "code_39_reader",       // Code 39
+                    "i2of5_reader",         // Interleaved 2 of 5 (common on local products)
+                    "code_93_reader",       // Code 93
+                    "codabar_reader"        // Codabar
+                ],
+                multiple: false             // Only detect one barcode at a time
+            },
+            locate: true,
+            debug: false
+        }, (err) => {
+            if (err) {
+                console.error("Quagga init error:", err);
+                alert("Scanner failed to start: " + err);
+                stopScanner();
+                return;
+            }
+            Quagga.start();
+            console.log("Quagga started with extended readers");
+        });
 
-            currentMediaStream = stream;
+        Quagga.onDetected((data) => {
+            const now = Date.now();
+            if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
+            lastDetectionTime = now;
 
-            document.getElementById('interactive').style.display = 'block';
-            document.getElementById('stop-scan-btn').style.display = 'block';
-            isScannerRunning = true;
+            const code = data.codeResult.code;
+            if (navigator.vibrate) navigator.vibrate(80);
 
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: document.getElementById('interactive'),
-                    constraints: {
-                        facingMode: { ideal: "environment" },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                },
-                locator: { patchSize: "medium", halfSample: true },
-                numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
-                decoder: { readers: ["ean_reader", "code_128_reader", "upc_reader", "code_39_reader"] },
-                locate: true
-            }, (err) => {
-                if (err) {
-                    console.error("Quagga init error:", err);
-                    alert("Scanner failed to start: " + err);
-                    stopScanner();
-                    return;
-                }
-                Quagga.start();
-            });
+            if (currentScanMode === 'sale') {
+                addToCart(code);
+                elements.saleStatus.textContent = `Added: ${code}`;
+                setTimeout(stopScanner, 400);
+                incrementDailyCount();
+            } else {
+                document.getElementById('stock-barcode').value = code;
+                autoFillFromBarcode(code);
+                stopScanner();
+            }
+        });
 
-            Quagga.onDetected((data) => {
-                const now = Date.now();
-                if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
-                lastDetectionTime = now;
-
-                const code = data.codeResult.code;
-                if (navigator.vibrate) navigator.vibrate(80);
-
-                if (currentScanMode === 'sale') {
-                    addToCart(code);
-                    elements.saleStatus.textContent = `Added: ${code}`;
-                    setTimeout(stopScanner, 400);
-                    incrementDailyCount();
-                } else {
-                    document.getElementById('stock-barcode').value = code;
-                    autoFillFromBarcode(code);
-                    stopScanner();
-                }
-            });
-
-        } catch (e) {
-            console.error("Camera error:", e);
-            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
-            stopScanner();
-        }
+    } catch (e) {
+        console.error("Camera error:", e);
+        alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
+        stopScanner();
     }
+}
 
     function stopScanner() {
         if (Quagga && isScannerRunning) Quagga.stop();
