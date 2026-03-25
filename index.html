@@ -137,7 +137,7 @@
 <script>
     // ==================== HARDCODED APPS SCRIPT URL ====================
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx9AKjnz2PLNSUh-wNe_1uuPIipUPrScWcpCriiuOwxbeZf3LmYcTW4h0GTTuLXHkVi/exec"; 
-    // ←←← Replace above with your actual deployed Apps Script URL
+    // ←←← CHANGE THIS TO YOUR ACTUAL DEPLOYED APPS SCRIPT URL
 
     let inventory = [];
     let cart = [];
@@ -196,6 +196,36 @@
 
     function normalizeBarcode(barcode) {
         return String(barcode || "").trim().replace(/^0+/, '');
+    }
+
+    // ==================== NEW FUNCTION - FIXED ====================
+    function saveUserSheetURL() {
+        const url = document.getElementById('user-sheet-url').value.trim();
+        if (url) {
+            localStorage.setItem('user-sheet-url', url);
+            alert("✅ Your Google Sheet URL has been saved!");
+            fetchInventoryFromSheet();   // Optional: auto-refresh after saving
+        } else {
+            alert("Please enter your Google Sheet URL.");
+        }
+    }
+
+    function loadSettings() {
+        document.getElementById('user-sheet-url').value = localStorage.getItem('user-sheet-url') || '';
+    }
+
+    function loadMarkups() {
+        document.getElementById('markup-Snacks').value = localStorage.getItem('markup-Snacks') || 20;
+        document.getElementById('markup-Drinks').value = localStorage.getItem('markup-Drinks') || 15;
+        document.getElementById('markup-Other').value = localStorage.getItem('markup-Other') || 10;
+    }
+
+    function saveMarkups() {
+        localStorage.setItem('markup-Snacks', document.getElementById('markup-Snacks').value);
+        localStorage.setItem('markup-Drinks', document.getElementById('markup-Drinks').value);
+        localStorage.setItem('markup-Other', document.getElementById('markup-Other').value);
+        alert("Markups saved! Prices updated.");
+        renderCart();
     }
 
     function autoFillFromBarcode(inputValue) {
@@ -355,7 +385,6 @@
         isScannerRunning = false;
     }
 
-    // Load inventory from localStorage (default on start)
     function loadInventoryFromLocal() {
         const saved = localStorage.getItem('tuckshop_inventory');
         if (saved) {
@@ -370,7 +399,6 @@
         localStorage.setItem('tuckshop_inventory', JSON.stringify(inventory));
     }
 
-    // Only load from sheet when user clicks Refresh
     async function fetchInventoryFromSheet() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) {
@@ -526,7 +554,6 @@
                     inventory.push(data);
                 }
                 saveInventoryToLocal();
-                fetchInventory(); 
             } else {
                 alert("Save failed: " + (result.error || "Unknown error"));
             }
@@ -596,32 +623,6 @@
         const total = elements.grandTotal.textContent;
         alert(`Checkout complete!\nTotal: ${total}\nThank you!\n\n(Tuckshop POS Free)`);
         clearCart();
-    }
-
-    function saveSettings() {
-        const url = document.getElementById('user-sheet-url').value.trim();
-        if (url) {
-            localStorage.setItem('user-sheet-url', url);
-            alert("Your Sheet URL saved!");
-        }
-    }
-
-    function loadSettings() {
-        document.getElementById('user-sheet-url').value = localStorage.getItem('user-sheet-url') || '';
-    }
-
-    function loadMarkups() {
-        document.getElementById('markup-Snacks').value = localStorage.getItem('markup-Snacks') || 20;
-        document.getElementById('markup-Drinks').value = localStorage.getItem('markup-Drinks') || 15;
-        document.getElementById('markup-Other').value = localStorage.getItem('markup-Other') || 10;
-    }
-
-    function saveMarkups() {
-        localStorage.setItem('markup-Snacks', document.getElementById('markup-Snacks').value);
-        localStorage.setItem('markup-Drinks', document.getElementById('markup-Drinks').value);
-        localStorage.setItem('markup-Other', document.getElementById('markup-Other').value);
-        alert("Markups saved! Prices updated.");
-        renderCart();
     }
 </script>
 </body>
