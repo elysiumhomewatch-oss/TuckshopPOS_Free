@@ -78,7 +78,7 @@
             <option value="Drinks">Drinks</option>
             <option value="Other">Other</option>
         </select>
-        <button id="save-stock-btn" class="btn btn-save" onclick="saveStockToCloud()">Save Item</button>
+        <button id="save-stock-btn" class="btn btn-save" onclick="saveStockToCloud()">Save / Update Item</button>
         <div id="stock-status" class="status"></div>
     </div>
 
@@ -153,16 +153,17 @@
         document.getElementById('nav-' + tab).classList.add('active');
     }
 
-    // ==================== AUTO FILL FROM BARCODE ====================
+    // Auto-fill when typing or scanning in Stock tab
     function autoFillFromBarcode(barcode) {
         if (barcode.length < 3) return;
-
         const item = inventory.find(i => String(i.barcode) === String(barcode));
         if (item) {
             document.getElementById('stock-name').value = item.name || "";
             document.getElementById('stock-cost').value = item.cost || "";
             document.getElementById('stock-cat').value = item.category || "Other";
-            document.getElementById('stock-status').textContent = "✅ Item found - data populated";
+            document.getElementById('stock-status').textContent = "✅ Item found - fields populated";
+        } else {
+            document.getElementById('stock-status').textContent = "";
         }
     }
 
@@ -234,7 +235,6 @@
                     setTimeout(stopScanner, 400);
                     incrementDailyCount();
                 } else {
-                    // Stock mode - auto fill
                     document.getElementById('stock-barcode').value = code;
                     autoFillFromBarcode(code);
                     stopScanner();
@@ -360,6 +360,66 @@
         }
     }
 
+    // ==================== SMART SAVE (Update if exists) ====================
+    async function saveStockToCloud() {
+        const url = localStorage.getItem('sheet-url');
+        if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
+
+        const data = {
+            barcode: document.getElementById('stock-barcode').value.trim(),
+            name: document.getElementById('stock-name').value.trim(),
+            cost: parseFloat(document.getElementById('stock-cost').value) || 0,
+            category: document.getElementById('stock-cat').value
+        };
+
+        if (!data.name || !data.barcode) return alert("Barcode and Item Name are required!");
+
+        const saveBtn = document.getElementById('save-stock-btn');
+        const statusEl = document.getElementById('stock-status');
+
+        saveBtn.disabled = true;
+        statusEl.textContent = "Saving / Updating...";
+
+        try {
+            // Check if barcode already exists locally
+            const existingIndex = inventory.findIndex(i => String(i.barcode) === String(data.barcode));
+
+            if (existingIndex !== -1) {
+                // Update local memory
+                inventory[existingIndex] = { ...inventory[existingIndex], ...data };
+            } else {
+                // Add new to local
+                inventory.push(data);
+            }
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: "addStock", data: data })
+            });
+
+            const result = await res.json();
+
+            if (result.success) {
+                alert(existingIndex !== -1 ? "✅ Item Updated successfully!" : "✅ New Item saved successfully!");
+                fetchInventory();
+                // Clear form only if it was a new item
+                if (existingIndex === -1) {
+                    document.getElementById('stock-barcode').value = '';
+                    document.getElementById('stock-name').value = '';
+                    document.getElementById('stock-cost').value = '';
+                }
+            } else {
+                alert("Save failed: " + (result.error || "Unknown error"));
+            }
+        } catch (e) {
+            alert("Connection error: " + e.message);
+        } finally {
+            saveBtn.disabled = false;
+            statusEl.textContent = "";
+        }
+    }
+
     function handleSearch(val) {
         if (val.length < 2) {
             elements.searchResults.style.display = 'none';
@@ -429,51 +489,6 @@
 
     function loadSettings() {
         document.getElementById('sheet-url').value = localStorage.getItem('sheet-url') || '';
-    }
-
-    async function saveStockToCloud() {
-        const url = localStorage.getItem('sheet-url');
-        if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
-
-        const data = {
-            barcode: document.getElementById('stock-barcode').value.trim(),
-            name: document.getElementById('stock-name').value.trim(),
-            cost: parseFloat(document.getElementById('stock-cost').value) || 0,
-            category: document.getElementById('stock-cat').value
-        };
-
-        if (!data.name || !data.barcode) return alert("Barcode and Item Name are required!");
-
-        const saveBtn = document.getElementById('save-stock-btn');
-        const statusEl = document.getElementById('stock-status');
-
-        saveBtn.disabled = true;
-        statusEl.textContent = "Saving...";
-
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "addStock", data: data })
-            });
-
-            const result = await res.json();
-
-            if (result.success) {
-                alert("✅ Item saved successfully!");
-                fetchInventory();
-                document.getElementById('stock-barcode').value = '';
-                document.getElementById('stock-name').value = '';
-                document.getElementById('stock-cost').value = '';
-            } else {
-                alert("Save failed: " + (result.error || "Unknown error"));
-            }
-        } catch (e) {
-            alert("Connection error: " + e.message);
-        } finally {
-            saveBtn.disabled = false;
-            statusEl.textContent = "";
-        }
     }
 </script>
 </body>
