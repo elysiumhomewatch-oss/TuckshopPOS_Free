@@ -315,29 +315,57 @@ try {
     }
 
     async function saveStockToCloud() {
-        const url = localStorage.getItem('sheet-url');
-        if (!url) return alert("Set Apps Script URL first!");
-        const data = {
-            barcode: document.getElementById('stock-barcode').value.trim(),
-            name: document.getElementById('stock-name').value.trim(),
-            cost: document.getElementById('stock-cost').value,
-            category: document.getElementById('stock-cat').value
-        };
-        if (!data.name || !data.barcode || !data.cost) return alert("Fill all fields.");
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type': 'text/plain;charset=utf-8'},
-                body: JSON.stringify({action: "addStock", data})
-            });
-            alert("Item added!");
-            fetchInventory();
-            // Clear form
-            ['stock-barcode','stock-name','stock-cost'].forEach(id => document.getElementById(id).value = '');
-        } catch (e) {
-            alert("Save failed.");
-        }
+    const url = localStorage.getItem('sheet-url');
+    if (!url) return alert("Please set the Google Apps Script URL in Settings first!");
+
+    const data = {
+        barcode: document.getElementById('stock-barcode').value.trim(),
+        name: document.getElementById('stock-name').value.trim(),
+        cost: parseFloat(document.getElementById('stock-cost').value) || 0,
+        category: document.getElementById('stock-cat').value
+    };
+
+    if (!data.name || !data.barcode) {
+        return alert("Barcode and Item Name are required!");
     }
+
+    const saveBtn = document.getElementById('save-stock-btn');
+    const statusEl = document.getElementById('stock-status');
+
+    saveBtn.disabled = true;
+    statusEl.textContent = "Saving to Google Sheet...";
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                action: "addStock", 
+                data: data 
+            })
+        });
+
+        const result = await res.json();
+        console.log("Server response:", result);
+
+        if (result.success) {
+            alert("✅ Item saved successfully!");
+            fetchInventory();   // Refresh inventory list
+            // Clear form
+            document.getElementById('stock-barcode').value = '';
+            document.getElementById('stock-name').value = '';
+            document.getElementById('stock-cost').value = '';
+        } else {
+            alert("Save failed: " + (result.error || JSON.stringify(result)));
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Connection error: " + e.message);
+    } finally {
+        saveBtn.disabled = false;
+        statusEl.textContent = "";
+    }
+}
 </script>
 </body>
 </html>
