@@ -26,16 +26,9 @@
         .btn-gray { background: var(--gray); color: white; }
         .cart-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
         #search-results, #stock-search-results { 
-            position: absolute; 
-            background: white; 
-            width: 100%; 
-            border: 1px solid #e2e8f0; 
-            border-radius: 10px; 
-            max-height: 220px; 
-            overflow-y: auto; 
-            z-index: 15; 
-            display: none; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+            position: absolute; background: white; width: 100%; border: 1px solid #e2e8f0; 
+            border-radius: 10px; max-height: 220px; overflow-y: auto; z-index: 15; 
+            display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
         }
         .search-row { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
         .search-row:hover { background: #f8fafc; }
@@ -44,13 +37,37 @@
         .status { color: var(--gray); font-size: 14px; margin-top: 8px; }
         .markup-group { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
         .markup-group label { flex: 0 0 100px; font-weight: 500; }
+
+        /* Collapsible Instructions */
+        .accordion {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+        .accordion-header {
+            padding: 14px;
+            background: #f1f5f9;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-content {
+            padding: 14px;
+            display: none;
+            line-height: 1.5;
+        }
+        .accordion-content.show { display: block; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2 style="text-align:center; color:var(--primary);">Tuckshop POS Free</h2>
-    <div class="watermark">Free Level 0 – Upgrade for unlimited use, recipes & employees</div>
+    <div class="watermark">Free Level 0 – Simple & Reliable for Spaza Shops</div>
 
     <nav>
         <button id="nav-sale" class="active" onclick="showTab('sale')">Sale</button>
@@ -61,6 +78,7 @@
     <div id="interactive" class="viewport"></div>
     <button id="stop-scan-btn" class="btn btn-danger" style="display:none;" onclick="stopScanner()">Close Camera</button>
 
+    <!-- SALE TAB -->
     <div id="sale-tab" class="tab-content active">
         <button id="scan-btn" class="btn btn-scan" onclick="startScanner('sale')">📷 Scan Item</button>
         <div style="position:relative;">
@@ -81,6 +99,7 @@
         </div>
     </div>
 
+    <!-- STOCK TAB -->
     <div id="stock-tab" class="tab-content">
         <h2>Receive / Edit Goods</h2>
         <button class="btn btn-scan" onclick="startScanner('stock')">📷 Scan Barcode</button>
@@ -101,6 +120,7 @@
         <div id="stock-status" class="status"></div>
     </div>
 
+    <!-- SETTINGS TAB -->
     <div id="sets-tab" class="tab-content">
         <h2>Settings</h2>
         
@@ -126,17 +146,42 @@
         </div>
         <button class="btn" style="background:#334155; color:white;" onclick="saveMarkups()">Save Markups</button>
 
-        <div class="upgrade-msg" style="margin-top:20px;">
-            <strong>Note:</strong><br>
-            • Your data is saved locally on this device.<br>
-            • Prices from Master Import are 0 — set them manually.
+        <!-- Collapsible Usage Instructions -->
+        <div class="accordion" style="margin-top:24px;">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+                📖 How to Use Tuckshop POS Free
+                <span>▼</span>
+            </div>
+            <div class="accordion-content">
+                <strong>Welcome!</strong><br><br>
+                1. <strong>Settings Tab</strong> → Paste your Google Sheet URL and tap "Save My Sheet & Sync"<br>
+                2. Tap <strong>"Refresh Inventory from My Sheet"</strong> to load your products<br>
+                3. <strong>Sale Tab</strong>: Scan barcodes or search → items go into cart<br>
+                4. When ready, tap <strong>"Complete Sale"</strong> → enter cash received → see change to give back<br>
+                5. <strong>Stock Tab</strong>: Scan or type barcode → fill name & cost → Save<br>
+                6. Change markups anytime in Settings<br><br>
+                <em>Everything saves automatically on your phone. No internet needed after initial setup.</em>
+            </div>
+        </div>
+
+        <!-- Paid Upgrades Section -->
+        <div class="upgrade-msg" style="margin-top:16px;">
+            <strong>Want More?</strong><br><br>
+            Upgrade to unlock:<br>
+            • Unlimited daily sales (no 100-item limit)<br>
+            • Recipe system (Kota, drinks, takeaways – auto deduct ingredients)<br>
+            • Employee clock-in / payroll<br>
+            • Stock-take & reports<br>
+            • Float management & card payments<br>
+            • Multiple users & advanced analytics<br><br>
+            Contact the developer for upgrade options.
         </div>
     </div>
 </div>
 
 <script>
     // ==================== HARDCODED APPS SCRIPT URL ====================
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/library/d/134LBUaQ3RdcmwmUktQ1w3aKU05KHlI0lqIcAyxFV4cv6oDg_axSAAIXx/14"; 
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx9AKjnz2PLNSUh-wNe_1uuPIipUPrScWcpCriiuOwxbeZf3LmYcTW4h0GTTuLXHkVi/exec"; 
     // ←←← CHANGE THIS TO YOUR ACTUAL DEPLOYED APPS SCRIPT URL
 
     let inventory = [];
@@ -227,6 +272,14 @@
         renderCart();
     }
 
+    // Collapsible Instructions
+    function toggleAccordion(header) {
+        const content = header.nextElementSibling;
+        content.classList.toggle('show');
+        const arrow = header.querySelector('span');
+        arrow.textContent = content.classList.contains('show') ? '▲' : '▼';
+    }
+
     function autoFillFromBarcode(inputValue) {
         if (inputValue.length < 3) return;
         const normalized = normalizeBarcode(inputValue);
@@ -250,10 +303,8 @@
             resultsDiv.style.display = 'none';
             return;
         }
-
         const lower = val.toLowerCase();
         const normalized = normalizeBarcode(val);
-
         const filtered = inventory.filter(i => 
             (i.name || '').toLowerCase().includes(lower) || 
             normalizeBarcode(i.barcode) === normalized
@@ -264,7 +315,6 @@
                 ${i.name} (${i.barcode})
             </div>`
         ).join('');
-
         resultsDiv.style.display = filtered.length ? 'block' : 'none';
     }
 
@@ -304,45 +354,23 @@
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: { ideal: "environment" },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
+                video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
             });
 
             currentMediaStream = stream;
-
             document.getElementById('interactive').style.display = 'block';
             document.getElementById('stop-scan-btn').style.display = 'block';
             isScannerRunning = true;
 
             Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: document.getElementById('interactive'),
-                    constraints: {
-                        facingMode: { ideal: "environment" },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                },
+                inputStream: { name: "Live", type: "LiveStream", target: document.getElementById('interactive'), constraints: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
                 locator: { patchSize: "medium", halfSample: true },
                 numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
                 frequency: 15,
-                decoder: {
-                    readers: ["ean_reader", "upc_reader", "code_128_reader", "code_39_reader", "i2of5_reader"],
-                    multiple: false
-                },
+                decoder: { readers: ["ean_reader", "upc_reader", "code_128_reader", "code_39_reader", "i2of5_reader"], multiple: false },
                 locate: true
             }, (err) => {
-                if (err) {
-                    console.error("Quagga init error:", err);
-                    alert("Scanner failed to start: " + err);
-                    stopScanner();
-                    return;
-                }
+                if (err) { alert("Scanner failed to start: " + err); stopScanner(); return; }
                 Quagga.start();
             });
 
@@ -365,20 +393,15 @@
                     stopScanner();
                 }
             });
-
         } catch (e) {
-            console.error("Camera error:", e);
-            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
+            alert(`Camera error: ${e.name}\nTry restarting your phone.`);
             stopScanner();
         }
     }
 
     function stopScanner() {
         if (Quagga && isScannerRunning) Quagga.stop();
-        if (currentMediaStream) {
-            currentMediaStream.getTracks().forEach(track => track.stop());
-            currentMediaStream = null;
-        }
+        if (currentMediaStream) currentMediaStream.getTracks().forEach(track => track.stop());
         document.getElementById('interactive').style.display = 'none';
         document.getElementById('stop-scan-btn').style.display = 'none';
         isScannerRunning = false;
@@ -400,10 +423,7 @@
 
     async function fetchInventoryFromSheet() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
-        if (!sheetUrl) {
-            alert("Please enter your Google Sheet URL first.");
-            return;
-        }
+        if (!sheetUrl) return alert("Please enter your Google Sheet URL first.");
 
         elements.saleStatus.textContent = "Loading from your Google Sheet...";
 
@@ -411,16 +431,10 @@
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ 
-                    action: "getInventory",
-                    sheetUrl: sheetUrl 
-                })
+                body: JSON.stringify({ action: "getInventory", sheetUrl: sheetUrl })
             });
 
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
             const rawData = await res.json();
-
             inventory = rawData.map(row => ({
                 barcode: normalizeBarcode(row.Barcode || row.barcode || ""),
                 name: String(row.Name || row.name || ""),
@@ -431,7 +445,6 @@
             saveInventoryToLocal();
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from your sheet`;
         } catch (e) {
-            console.error("Fetch error:", e);
             elements.saleStatus.textContent = "❌ Failed to load from sheet";
         }
     }
@@ -439,30 +452,16 @@
     async function importMasterProducts() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) return alert("Please enter your Google Sheet URL first!");
-
         if (!confirm("Import products from Master Database?\n\nWarning: Prices are NOT included.")) return;
-
-        const statusEl = document.getElementById('sale-status');
-        statusEl.textContent = "Importing Master Products...";
 
         try {
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ 
-                    action: "importMaster",
-                    sheetUrl: sheetUrl 
-                })
+                body: JSON.stringify({ action: "importMaster", sheetUrl: sheetUrl })
             });
 
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
             const masterItems = await res.json();
-
-            if (!Array.isArray(masterItems) || masterItems.length === 0) {
-                return alert("Master database returned no items.");
-            }
-
             let importedCount = 0;
             const existingBarcodes = new Set(inventory.map(i => normalizeBarcode(i.barcode)));
 
@@ -470,13 +469,7 @@
                 const normalizedBarcode = normalizeBarcode(item.barcode);
                 if (!normalizedBarcode || existingBarcodes.has(normalizedBarcode)) continue;
 
-                const newItem = {
-                    barcode: normalizedBarcode,
-                    name: String(item.name || ""),
-                    cost: 0,
-                    category: String(item.category || "Other")
-                };
-
+                const newItem = { barcode: normalizedBarcode, name: String(item.name || ""), cost: 0, category: String(item.category || "Other") };
                 await saveSingleItemToSheet(newItem);
                 inventory.push(newItem);
                 existingBarcodes.add(normalizedBarcode);
@@ -485,10 +478,8 @@
 
             saveInventoryToLocal();
             elements.saleStatus.textContent = `✅ Imported ${importedCount} new products`;
-            alert(`✅ Imported ${importedCount} products!\n\nNote: Cost prices are 0. Please set them in Stock tab.`);
-
+            alert(`✅ Imported ${importedCount} products!\n\nSet cost prices in Stock tab.`);
         } catch (e) {
-            console.error(e);
             alert("Import failed: " + e.message);
         }
     }
@@ -500,15 +491,9 @@
             await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ 
-                    action: "addStock", 
-                    data: item,
-                    sheetUrl: sheetUrl 
-                })
+                body: JSON.stringify({ action: "addStock", data: item, sheetUrl: sheetUrl })
             });
-        } catch (e) {
-            console.error("Failed to save item:", e);
-        }
+        } catch (e) { console.error(e); }
     }
 
     async function saveStockToCloud() {
@@ -525,42 +510,25 @@
 
         if (!data.name || !data.barcode) return alert("Barcode and Item Name are required!");
 
-        const saveBtn = document.getElementById('save-stock-btn');
-        const statusEl = document.getElementById('stock-status');
-
-        saveBtn.disabled = true;
-        statusEl.textContent = "Saving / Updating...";
-
         try {
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ 
-                    action: "addStock", 
-                    data: data,
-                    sheetUrl: sheetUrl 
-                })
+                body: JSON.stringify({ action: "addStock", data: data, sheetUrl: sheetUrl })
             });
 
             const result = await res.json();
-
             if (result.success) {
                 alert("✅ Item saved / updated successfully!");
                 const index = inventory.findIndex(i => normalizeBarcode(i.barcode) === data.barcode);
-                if (index !== -1) {
-                    inventory[index] = { ...inventory[index], ...data };
-                } else {
-                    inventory.push(data);
-                }
+                if (index !== -1) inventory[index] = { ...inventory[index], ...data };
+                else inventory.push(data);
                 saveInventoryToLocal();
             } else {
-                alert("Save failed: " + (result.error || "Unknown error"));
+                alert("Save failed.");
             }
         } catch (e) {
             alert("Connection error: " + e.message);
-        } finally {
-            saveBtn.disabled = false;
-            statusEl.textContent = "";
         }
     }
 
@@ -617,15 +585,12 @@
     function removeFromCart(idx) { cart.splice(idx, 1); renderCart(); }
     function clearCart() { if (confirm("Clear cart?")) { cart = []; renderCart(); } }
 
-    // ==================== CHANGE CALCULATION ====================
     function checkout() {
         if (!cart.length) return;
-
         const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
         const cashReceived = prompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2));
 
-        if (cashReceived === null) return; // User cancelled
-
+        if (cashReceived === null) return;
         const cash = parseFloat(cashReceived);
         if (isNaN(cash) || cash < total) {
             alert("Invalid amount or not enough cash!");
@@ -633,34 +598,9 @@
         }
 
         const change = cash - total;
-
-        let message = `✅ Sale Complete!\n\n`;
-        message += `Total:          R${total.toFixed(2)}\n`;
-        message += `Cash Received:  R${cash.toFixed(2)}\n`;
-        message += `Change:         R${change.toFixed(2)}\n\n`;
-        message += `Thank you! Come again!`;
-
-        alert(message);
+        alert(`✅ Sale Complete!\n\nTotal:          R${total.toFixed(2)}\nCash Received:  R${cash.toFixed(2)}\nChange:         R${change.toFixed(2)}\n\nThank you! Come again!`);
 
         clearCart();
-    }
-
-    // ==================== OTHER FUNCTIONS ====================
-    function handleSearch(val) {
-        if (val.length < 2) {
-            elements.searchResults.style.display = 'none';
-            return;
-        }
-        const lower = val.toLowerCase();
-        const filtered = inventory.filter(i => 
-            (i.name || '').toLowerCase().includes(lower) || 
-            normalizeBarcode(i.barcode) === normalizeBarcode(val)
-        );
-
-        elements.searchResults.innerHTML = filtered.length ? 
-            filtered.map(i => `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">${i.name} (R${getPrice(i)})</div>`).join('') :
-            `<div style="padding:12px;color:#888;">No matching items found</div>`;
-        elements.searchResults.style.display = 'block';
     }
 </script>
 </body>
