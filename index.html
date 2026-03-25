@@ -89,14 +89,13 @@
         
         <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save & Sync</button>
         <button class="btn btn-gray" style="margin-top:8px;" onclick="fetchInventory()">Refresh Inventory Now</button>
-        <button class="btn btn-save" style="margin-top:8px;" onclick="importMasterProducts()">Import Master Products (Premium Feature)</button>
+        <button class="btn btn-save" style="margin-top:8px;" onclick="importMasterProducts()">Import Master Products</button>
         
         <div class="upgrade-msg" style="margin-top:20px;">
             <strong>Want more features?</strong><br>
             - Unlimited sales<br>
             - Takeaways & recipes<br>
             - Employee management<br>
-            - Full Master Product Database<br>
             Contact me for upgrade!
         </div>
     </div>
@@ -232,7 +231,7 @@
 
         } catch (e) {
             console.error("Camera error:", e);
-            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone and closing other apps.`);
+            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
             stopScanner();
         }
     }
@@ -268,35 +267,33 @@
 
             const rawData = await res.json();
 
-            inventory = rawData.map(row => {
-                return {
-                    barcode: String(row.Barcode || row.barcode || row.BARCODE || ""),
-                    name: String(row.Name || row.name || row.NAME || ""),
-                    cost: parseFloat(row.Cost || row.cost || row.COST || 0),
-                    category: String(row.Category || row.category || row.CATEGORY || "Other")
-                };
-            }).filter(item => item.barcode && item.name);
+            inventory = rawData.map(row => ({
+                barcode: String(row.Barcode || row.barcode || ""),
+                name: String(row.Name || row.name || ""),
+                cost: parseFloat(row.Cost || row.cost || 0),
+                category: String(row.Category || row.category || "Other")
+            })).filter(item => item.barcode && item.name);
 
             console.log("Inventory loaded:", inventory);
-            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from sheet`;
+            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items`;
 
         } catch (e) {
             console.error("Fetch error:", e);
-            elements.saleStatus.textContent = "❌ Failed to load inventory – check URL";
+            elements.saleStatus.textContent = "❌ Failed to load inventory";
         }
     }
 
-    // ==================== NEW: IMPORT MASTER PRODUCTS ====================
+    // ==================== IMPORT MASTER PRODUCTS ====================
     async function importMasterProducts() {
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL first!");
 
-        if (!confirm("Import thousands of common products from Master Database?\nThis will add them to your Inventory sheet.")) {
+        if (!confirm("Import all products from the Master Database?\nThis may take a few seconds.")) {
             return;
         }
 
         const statusEl = document.getElementById('sale-status');
-        statusEl.textContent = "Importing Master Products...";
+        statusEl.textContent = "Importing Master Products... Please wait...";
 
         try {
             const res = await fetch(url, {
@@ -305,18 +302,20 @@
                 body: JSON.stringify({ action: "importMaster" })
             });
 
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
             const items = await res.json();
 
-            if (items.length === 0) {
-                return alert("Master database is empty.");
+            if (!Array.isArray(items) || items.length === 0) {
+                return alert("Master database is empty or could not be loaded.");
             }
 
-            alert(`✅ Successfully imported ${items.length} products from Master Database!`);
-            fetchInventory();   // Refresh local inventory
+            alert(`✅ Successfully imported ${items.length} products from the Master Database!`);
+            fetchInventory();   // Refresh local list
 
         } catch (e) {
             console.error(e);
-            alert("Import failed: " + e.message);
+            alert("Import failed: " + e.message + "\nMake sure you re-deployed the script after adding the scope.");
         }
     }
 
