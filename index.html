@@ -275,7 +275,7 @@
             })).filter(item => item.barcode && item.name);
 
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items`;
-            console.log("Current inventory:", inventory);
+            console.log("Current inventory after fetch:", inventory);
 
         } catch (e) {
             console.error("Fetch error:", e);
@@ -308,18 +308,21 @@
                 return alert("Master database returned no items.");
             }
 
-            alert(`✅ Imported ${items.length} products from Master Database!`);
-
-            // Add all items to local inventory immediately
-            inventory = inventory.concat(items.map(item => ({
+            // FIXED: Properly add imported items to local inventory
+            const newItems = items.map(item => ({
                 barcode: String(item.Barcode || item.barcode || ""),
                 name: String(item.Name || item.name || ""),
                 cost: parseFloat(item.Cost || item.cost || 0),
                 category: String(item.Category || item.category || "Other")
-            })));
+            })).filter(item => item.barcode && item.name);
 
-            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items (including imported)`;
-            console.log("Imported items:", items);
+            inventory = inventory.concat(newItems);
+
+            elements.saleStatus.textContent = `✅ Imported ${newItems.length} products. Total now: ${inventory.length}`;
+            console.log("Imported items:", newItems);
+            console.log("Final inventory:", inventory);
+
+            alert(`✅ Successfully imported ${newItems.length} products!\nYou can now search for them.`);
 
         } catch (e) {
             console.error(e);
