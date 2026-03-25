@@ -127,6 +127,16 @@
     let dailyCount = 0;
     let todayKey = 'tuckshop_free_today_' + new Date().toDateString();
 
+    // Define elements object
+    const elements = {
+        manualSearch: document.getElementById('manual-search'),
+        searchResults: document.getElementById('search-results'),
+        cartList: document.getElementById('cart-items-list'),
+        grandTotal: document.getElementById('grand-total'),
+        saleStatus: document.getElementById('sale-status'),
+        limitMsg: document.getElementById('limit-msg')
+    };
+
     window.onload = () => {
         loadSettings();
         fetchInventory();
@@ -136,15 +146,14 @@
     };
 
     function checkDailyLimit() {
-        const limitMsg = document.getElementById('limit-msg');
         if (dailyCount >= DAILY_LIMIT) {
-            limitMsg.style.display = 'block';
+            elements.limitMsg.style.display = 'block';
             document.getElementById('scan-btn').disabled = true;
-            document.getElementById('manual-search').disabled = true;
+            elements.manualSearch.disabled = true;
         } else {
-            limitMsg.style.display = 'none';
+            elements.limitMsg.style.display = 'none';
             document.getElementById('scan-btn').disabled = false;
-            document.getElementById('manual-search').disabled = false;
+            elements.manualSearch.disabled = false;
         }
     }
 
@@ -183,7 +192,6 @@
         }
     }
 
-    // ==================== STOCK SEARCH DROPDOWN ====================
     function handleStockSearch(val) {
         const resultsDiv = document.getElementById('stock-search-results');
         if (val.length < 2) {
