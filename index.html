@@ -86,14 +86,17 @@
         <h2>Settings</h2>
         <label>Google Apps Script URL:</label>
         <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
-        <button class="btn" style="background:#334155; color:white; margin-top:8px;" onclick="saveSettings()">Save & Sync</button>
+        
+        <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save & Sync</button>
         <button class="btn btn-gray" style="margin-top:8px;" onclick="fetchInventory()">Refresh Inventory Now</button>
+        <button class="btn btn-save" style="margin-top:8px;" onclick="importMasterProducts()">Import Master Products (Premium Feature)</button>
         
         <div class="upgrade-msg" style="margin-top:20px;">
             <strong>Want more features?</strong><br>
             - Unlimited sales<br>
             - Takeaways & recipes<br>
             - Employee management<br>
+            - Full Master Product Database<br>
             Contact me for upgrade!
         </div>
     </div>
@@ -265,7 +268,6 @@
 
             const rawData = await res.json();
 
-            // Robust parsing for Google Sheets
             inventory = rawData.map(row => {
                 return {
                     barcode: String(row.Barcode || row.barcode || row.BARCODE || ""),
@@ -275,13 +277,46 @@
                 };
             }).filter(item => item.barcode && item.name);
 
-            console.log("Inventory loaded successfully:", inventory);
-
+            console.log("Inventory loaded:", inventory);
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from sheet`;
 
         } catch (e) {
             console.error("Fetch error:", e);
-            elements.saleStatus.textContent = "❌ Failed to load inventory – check URL and re-deploy script";
+            elements.saleStatus.textContent = "❌ Failed to load inventory – check URL";
+        }
+    }
+
+    // ==================== NEW: IMPORT MASTER PRODUCTS ====================
+    async function importMasterProducts() {
+        const url = localStorage.getItem('sheet-url');
+        if (!url) return alert("Please set the Google Apps Script URL first!");
+
+        if (!confirm("Import thousands of common products from Master Database?\nThis will add them to your Inventory sheet.")) {
+            return;
+        }
+
+        const statusEl = document.getElementById('sale-status');
+        statusEl.textContent = "Importing Master Products...";
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: "importMaster" })
+            });
+
+            const items = await res.json();
+
+            if (items.length === 0) {
+                return alert("Master database is empty.");
+            }
+
+            alert(`✅ Successfully imported ${items.length} products from Master Database!`);
+            fetchInventory();   // Refresh local inventory
+
+        } catch (e) {
+            console.error(e);
+            alert("Import failed: " + e.message);
         }
     }
 
@@ -318,7 +353,7 @@
         if (dailyCount >= DAILY_LIMIT) return alert("Daily limit reached – upgrade!");
         const barcode = String(barcodeStr);
         const item = inventory.find(i => String(i.barcode) === barcode);
-        if (!item) return alert("Item not found. Please click 'Refresh Inventory Now' in Settings.");
+        if (!item) return alert("Item not found. Please click 'Refresh Inventory Now'.");
         
         const existing = cart.find(c => String(c.barcode) === barcode);
         if (existing) existing.qty++;
