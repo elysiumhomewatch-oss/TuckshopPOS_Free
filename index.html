@@ -208,25 +208,24 @@
                 }
             },
             locator: { 
-                patchSize: "medium", 
+                patchSize: "small",      // Better for small barcodes like Dettol
                 halfSample: true 
             },
             numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
-            frequency: 15,                    // Scan more often
+            frequency: 20,               // Scan faster
             decoder: {
                 readers: [
-                    "ean_reader",           // EAN-8 / EAN-13
-                    "upc_reader",           // UPC-A
-                    "code_128_reader",      // Code 128 (very common)
-                    "code_39_reader",       // Code 39
-                    "i2of5_reader",         // Interleaved 2 of 5 (common on local products)
-                    "code_93_reader",       // Code 93
-                    "codabar_reader"        // Codabar
+                    "ean_reader",        // EAN-8 and EAN-13
+                    "upc_reader",
+                    "code_128_reader",
+                    "code_39_reader",
+                    "i2of5_reader",      // Very common on local products
+                    "code_93_reader",
+                    "codabar_reader"
                 ],
-                multiple: false             // Only detect one barcode at a time
+                multiple: false
             },
-            locate: true,
-            debug: false
+            locate: true
         }, (err) => {
             if (err) {
                 console.error("Quagga init error:", err);
@@ -234,8 +233,8 @@
                 stopScanner();
                 return;
             }
+            console.log("Quagga started with improved settings for short barcodes");
             Quagga.start();
-            console.log("Quagga started with extended readers");
         });
 
         Quagga.onDetected((data) => {
@@ -244,12 +243,14 @@
             lastDetectionTime = now;
 
             const code = data.codeResult.code;
-            if (navigator.vibrate) navigator.vibrate(80);
+            if (navigator.vibrate) navigator.vibrate(100);
+
+            console.log("Barcode detected:", code);
 
             if (currentScanMode === 'sale') {
                 addToCart(code);
                 elements.saleStatus.textContent = `Added: ${code}`;
-                setTimeout(stopScanner, 400);
+                setTimeout(stopScanner, 500);
                 incrementDailyCount();
             } else {
                 document.getElementById('stock-barcode').value = code;
@@ -260,7 +261,7 @@
 
     } catch (e) {
         console.error("Camera error:", e);
-        alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
+        alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry: Restart phone + good lighting`);
         stopScanner();
     }
 }
