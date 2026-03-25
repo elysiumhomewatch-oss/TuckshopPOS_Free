@@ -105,12 +105,12 @@
         <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
         
         <button class="btn" style="background:#334155; color:white; margin-top:12px;" onclick="saveSettings()">Save & Sync</button>
-        <button class="btn btn-gray" style="margin-top:8px;" onclick="fetchInventory()">Refresh Inventory Now</button>
+        <button class="btn btn-gray" style="margin-top:8px;" onclick="fetchInventoryFromSheet()">Refresh Inventory from Sheet</button>
         <button class="btn btn-save" style="margin-top:8px;" onclick="importMasterProducts()">Import Master Products</button>
         
         <div class="upgrade-msg" style="margin-top:20px;">
-            <strong>Master Import Note:</strong><br>
-            Prices are not included. Set Cost Price manually after import.
+            <strong>Note:</strong><br>
+            Items are saved locally. Use "Refresh from Sheet" to pull latest from cloud.
         </div>
     </div>
 </div>
@@ -127,7 +127,6 @@
     let dailyCount = 0;
     let todayKey = 'tuckshop_free_today_' + new Date().toDateString();
 
-    // Define elements object
     const elements = {
         manualSearch: document.getElementById('manual-search'),
         searchResults: document.getElementById('search-results'),
@@ -137,9 +136,10 @@
         limitMsg: document.getElementById('limit-msg')
     };
 
+    // Load from localStorage on start
     window.onload = () => {
         loadSettings();
-        fetchInventory();
+        loadInventoryFromLocal();
         renderCart();
         dailyCount = parseInt(localStorage.getItem(todayKey) || '0');
         checkDailyLimit();
@@ -175,6 +175,22 @@
         return String(barcode || "").trim().replace(/^0+/, '');
     }
 
+    // Load inventory from localStorage
+    function loadInventoryFromLocal() {
+        const saved = localStorage.getItem('tuckshop_inventory');
+        if (saved) {
+            inventory = JSON.parse(saved);
+            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from device`;
+        } else {
+            elements.saleStatus.textContent = "No local data yet. Click Refresh from Sheet.";
+        }
+    }
+
+    // Save inventory to localStorage
+    function saveInventoryToLocal() {
+        localStorage.setItem('tuckshop_inventory', JSON.stringify(inventory));
+    }
+
     function autoFillFromBarcode(inputValue) {
         if (inputValue.length < 3) return;
         const normalized = normalizeBarcode(inputValue);
@@ -207,16 +223,13 @@
             normalizeBarcode(i.barcode) === normalized
         );
 
-        if (filtered.length === 0) {
-            resultsDiv.innerHTML = `<div style="padding:12px;color:#888;">No matching items found</div>`;
-        } else {
-            resultsDiv.innerHTML = filtered.map(i => 
-                `<div class="search-row" onclick="selectStockItem('${String(i.barcode)}')">
-                    ${i.name} (${i.barcode})
-                </div>`
-            ).join('');
-        }
-        resultsDiv.style.display = 'block';
+        resultsDiv.innerHTML = filtered.map(i => 
+            `<div class="search-row" onclick="selectStockItem('${String(i.barcode)}')">
+                ${i.name} (${i.barcode})
+            </div>`
+        ).join('');
+
+        resultsDiv.style.display = filtered.length ? 'block' : 'none';
     }
 
     function selectStockItem(barcode) {
@@ -336,14 +349,15 @@
         isScannerRunning = false;
     }
 
-    async function fetchInventory() {
+    // Only load from sheet when user clicks "Refresh Inventory Now"
+    async function fetchInventoryFromSheet() {
         const url = localStorage.getItem('sheet-url');
         if (!url) {
             elements.saleStatus.textContent = "⚠️ Set Apps Script URL in Settings";
             return;
         }
 
-        elements.saleStatus.textContent = "Loading inventory...";
+        elements.saleStatus.textContent = "Loading from Google Sheet...";
 
         try {
             const res = await fetch(url, {
@@ -363,11 +377,28 @@
                 category: String(row.Category || row.category || "Other")
             })).filter(item => item.barcode);
 
-            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items`;
+            saveInventoryToLocal();   // Save to localStorage
+            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from sheet`;
         } catch (e) {
             console.error("Fetch error:", e);
-            elements.saleStatus.textContent = "❌ Failed to load inventory";
+            elements.saleStatus.textContent = "❌ Failed to load from sheet";
         }
+    }
+
+    // Load from localStorage
+    function loadInventoryFromLocal() {
+        const saved = localStorage.getItem('tuckshop_inventory');
+        if (saved) {
+            inventory = JSON.parse(saved);
+            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from device`;
+        } else {
+            elements.saleStatus.textContent = "No local data yet. Click Refresh from Sheet.";
+        }
+    }
+
+    // Save to localStorage
+    function saveInventoryToLocal() {
+        localStorage.setItem('tuckshop_inventory', JSON.stringify(inventory));
     }
 
     async function importMasterProducts() {
@@ -414,6 +445,7 @@
                 importedCount++;
             }
 
+            saveInventoryToLocal();
             elements.saleStatus.textContent = `✅ Imported ${importedCount} new products`;
             alert(`✅ Imported ${importedCount} products!\n\nNote: Cost prices are 0. Please set them in Stock tab.`);
 
@@ -468,12 +500,15 @@
 
             if (result.success) {
                 alert("✅ Item saved / updated successfully!");
-                fetchInventory();
-                if (!inventory.some(i => normalizeBarcode(i.barcode) === data.barcode)) {
-                    document.getElementById('stock-barcode').value = '';
-                    document.getElementById('stock-name').value = '';
-                    document.getElementById('stock-cost').value = '';
+                // Update local inventory
+                const index = inventory.findIndex(i => normalizeBarcode(i.barcode) === data.barcode);
+                if (index !== -1) {
+                    inventory[index] = { ...inventory[index], ...data };
+                } else {
+                    inventory.push(data);
                 }
+                saveInventoryToLocal();
+                fetchInventory(); // Refresh display
             } else {
                 alert("Save failed: " + (result.error || "Unknown error"));
             }
@@ -549,7 +584,6 @@
         const url = document.getElementById('sheet-url').value.trim();
         if (url) localStorage.setItem('sheet-url', url);
         alert("Settings saved!");
-        fetchInventory();
     }
 
     function loadSettings() {
