@@ -30,6 +30,7 @@
         .watermark { color: #94a3b8; font-size: 13px; text-align: center; margin: 16px 0; }
         .upgrade-msg { background: #fef3c7; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 15px; }
         .status { color: var(--gray); font-size: 14px; margin-top: 8px; }
+        #stock-search-results { position: absolute; background: white; width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; max-height: 200px; overflow-y: auto; z-index: 15; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -68,9 +69,14 @@
     </div>
 
     <div id="stock-tab" class="tab-content">
-        <h2>Receive Goods</h2>
+        <h2>Receive / Edit Goods</h2>
         <button class="btn btn-scan" onclick="startScanner('stock')">📷 Scan Barcode</button>
-        <input type="text" id="stock-barcode" placeholder="Barcode" oninput="autoFillFromBarcode(this.value)">
+        
+        <div style="position:relative;">
+            <input type="text" id="stock-barcode" placeholder="Barcode" oninput="handleStockSearch(this.value)">
+            <div id="stock-search-results"></div>
+        </div>
+        
         <input type="text" id="stock-name" placeholder="Item Name">
         <input type="number" step="0.01" id="stock-cost" placeholder="Cost Price (R)">
         <select id="stock-cat">
@@ -153,29 +159,68 @@
         document.getElementById('nav-' + tab).classList.add('active');
     }
 
-    // ==================== NORMALIZE BARCODE (Remove leading zeros) ====================
+    // ==================== NORMALIZE BARCODE ====================
     function normalizeBarcode(barcode) {
-        return String(barcode || "").trim().replace(/^0+/, '');   // Remove all leading zeros
+        return String(barcode || "").trim().replace(/^0+/, '');
     }
 
-    // Auto-fill when typing or scanning in Stock tab
+    // Auto-fill when typing barcode in Stock tab
     function autoFillFromBarcode(inputValue) {
         if (inputValue.length < 3) return;
-
         const normalized = normalizeBarcode(inputValue);
         const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
-
         if (item) {
             document.getElementById('stock-name').value = item.name || "";
             document.getElementById('stock-cost').value = item.cost || "";
             document.getElementById('stock-cat').value = item.category || "Other";
             document.getElementById('stock-status').textContent = "✅ Item found - fields populated";
         } else {
-            // New barcode → clear old fields
             document.getElementById('stock-name').value = "";
             document.getElementById('stock-cost').value = "";
             document.getElementById('stock-cat').value = "Other";
             document.getElementById('stock-status').textContent = "New item - please fill details";
+        }
+    }
+
+    // ==================== STOCK SEARCH DROPDOWN ====================
+    function handleStockSearch(val) {
+        const resultsDiv = document.getElementById('stock-search-results');
+        if (val.length < 2) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const lower = val.toLowerCase();
+        const normalized = normalizeBarcode(val);
+
+        const filtered = inventory.filter(i => 
+            (i.name || '').toLowerCase().includes(lower) || 
+            normalizeBarcode(i.barcode) === normalized
+        );
+
+        if (filtered.length === 0) {
+            resultsDiv.innerHTML = `<div style="padding:12px;color:#888;">No matching items</div>`;
+        } else {
+            resultsDiv.innerHTML = filtered.map(i => 
+                `<div class="search-row" onclick="selectStockItem('${String(i.barcode)}')">
+                    ${i.name} (${i.barcode})
+                </div>`
+            ).join('');
+        }
+        resultsDiv.style.display = 'block';
+    }
+
+    // Select item from dropdown and fill form
+    function selectStockItem(barcode) {
+        const normalized = normalizeBarcode(barcode);
+        const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
+        if (item) {
+            document.getElementById('stock-barcode').value = item.barcode;
+            document.getElementById('stock-name').value = item.name || "";
+            document.getElementById('stock-cost').value = item.cost || "";
+            document.getElementById('stock-cat').value = item.category || "Other";
+            document.getElementById('stock-search-results').style.display = 'none';
+            document.getElementById('stock-status').textContent = "✅ Item loaded for editing";
         }
     }
 
@@ -223,10 +268,7 @@
                 numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
                 frequency: 15,
                 decoder: {
-                    readers: [
-                        "ean_reader", "upc_reader", "code_128_reader", 
-                        "code_39_reader", "i2of5_reader", "code_93_reader", "codabar_reader"
-                    ],
+                    readers: ["ean_reader", "upc_reader", "code_128_reader", "code_39_reader", "i2of5_reader"],
                     multiple: false
                 },
                 locate: true
@@ -245,7 +287,7 @@
                 if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
                 lastDetectionTime = now;
 
-                let code = data.codeResult.code;
+                const code = data.codeResult.code;
                 if (navigator.vibrate) navigator.vibrate(80);
 
                 if (currentScanMode === 'sale') {
@@ -312,8 +354,42 @@
         }
     }
 
-    function normalizeBarcode(barcode) {
-        return String(barcode || "").trim().replace(/^0+/, '');
+    // ==================== STOCK SEARCH DROPDOWN (as requested) ====================
+    function handleStockSearch(val) {
+        const resultsDiv = document.getElementById('stock-search-results');
+        if (val.length < 2) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const lower = val.toLowerCase();
+        const normalized = normalizeBarcode(val);
+
+        const filtered = inventory.filter(i => 
+            (i.name || '').toLowerCase().includes(lower) || 
+            normalizeBarcode(i.barcode) === normalized
+        );
+
+        resultsDiv.innerHTML = filtered.map(i => 
+            `<div class="search-row" onclick="selectStockItem('${String(i.barcode)}')">
+                ${i.name} (${i.barcode})
+            </div>`
+        ).join('');
+
+        resultsDiv.style.display = filtered.length ? 'block' : 'none';
+    }
+
+    function selectStockItem(barcode) {
+        const normalized = normalizeBarcode(barcode);
+        const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
+        if (item) {
+            document.getElementById('stock-barcode').value = item.barcode;
+            document.getElementById('stock-name').value = item.name || "";
+            document.getElementById('stock-cost').value = item.cost || "";
+            document.getElementById('stock-cat').value = item.category || "Other";
+            document.getElementById('stock-search-results').style.display = 'none';
+            document.getElementById('stock-status').textContent = "✅ Item loaded for editing";
+        }
     }
 
     async function importMasterProducts() {
@@ -415,7 +491,7 @@
             if (result.success) {
                 alert("✅ Item saved / updated successfully!");
                 fetchInventory();
-                // Clear form only for new items (we keep data for editing)
+                // Clear form only for new items
                 if (!inventory.some(i => normalizeBarcode(i.barcode) === data.barcode)) {
                     document.getElementById('stock-barcode').value = '';
                     document.getElementById('stock-name').value = '';
@@ -437,10 +513,10 @@
             elements.searchResults.style.display = 'none';
             return;
         }
-        const normalizedSearch = normalizeBarcode(val);
+        const lower = val.toLowerCase();
         const filtered = inventory.filter(i => 
-            (i.name || '').toLowerCase().includes(val.toLowerCase()) || 
-            normalizeBarcode(i.barcode) === normalizedSearch
+            (i.name || '').toLowerCase().includes(lower) || 
+            normalizeBarcode(i.barcode) === normalizeBarcode(val)
         );
 
         elements.searchResults.innerHTML = filtered.length ? 
