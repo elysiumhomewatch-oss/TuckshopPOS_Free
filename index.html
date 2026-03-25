@@ -198,13 +198,12 @@
         return String(barcode || "").trim().replace(/^0+/, '');
     }
 
-    // ==================== NEW FUNCTION - FIXED ====================
     function saveUserSheetURL() {
         const url = document.getElementById('user-sheet-url').value.trim();
         if (url) {
             localStorage.setItem('user-sheet-url', url);
             alert("✅ Your Google Sheet URL has been saved!");
-            fetchInventoryFromSheet();   // Optional: auto-refresh after saving
+            fetchInventoryFromSheet();
         } else {
             alert("Please enter your Google Sheet URL.");
         }
@@ -618,11 +617,50 @@
     function removeFromCart(idx) { cart.splice(idx, 1); renderCart(); }
     function clearCart() { if (confirm("Clear cart?")) { cart = []; renderCart(); } }
 
+    // ==================== CHANGE CALCULATION ====================
     function checkout() {
         if (!cart.length) return;
-        const total = elements.grandTotal.textContent;
-        alert(`Checkout complete!\nTotal: ${total}\nThank you!\n\n(Tuckshop POS Free)`);
+
+        const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
+        const cashReceived = prompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2));
+
+        if (cashReceived === null) return; // User cancelled
+
+        const cash = parseFloat(cashReceived);
+        if (isNaN(cash) || cash < total) {
+            alert("Invalid amount or not enough cash!");
+            return;
+        }
+
+        const change = cash - total;
+
+        let message = `✅ Sale Complete!\n\n`;
+        message += `Total:          R${total.toFixed(2)}\n`;
+        message += `Cash Received:  R${cash.toFixed(2)}\n`;
+        message += `Change:         R${change.toFixed(2)}\n\n`;
+        message += `Thank you! Come again!`;
+
+        alert(message);
+
         clearCart();
+    }
+
+    // ==================== OTHER FUNCTIONS ====================
+    function handleSearch(val) {
+        if (val.length < 2) {
+            elements.searchResults.style.display = 'none';
+            return;
+        }
+        const lower = val.toLowerCase();
+        const filtered = inventory.filter(i => 
+            (i.name || '').toLowerCase().includes(lower) || 
+            normalizeBarcode(i.barcode) === normalizeBarcode(val)
+        );
+
+        elements.searchResults.innerHTML = filtered.length ? 
+            filtered.map(i => `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">${i.name} (R${getPrice(i)})</div>`).join('') :
+            `<div style="padding:12px;color:#888;">No matching items found</div>`;
+        elements.searchResults.style.display = 'block';
     }
 </script>
 </body>
