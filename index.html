@@ -70,7 +70,7 @@
     <div id="stock-tab" class="tab-content">
         <h2>Receive Goods</h2>
         <button class="btn btn-scan" onclick="startScanner('stock')">📷 Scan Barcode</button>
-        <input type="text" id="stock-barcode" placeholder="Barcode">
+        <input type="text" id="stock-barcode" placeholder="Barcode" oninput="autoFillFromBarcode(this.value)">
         <input type="text" id="stock-name" placeholder="Item Name">
         <input type="number" step="0.01" id="stock-cost" placeholder="Cost Price (R)">
         <select id="stock-cat">
@@ -93,7 +93,7 @@
         
         <div class="upgrade-msg" style="margin-top:20px;">
             <strong>Master Import Note:</strong><br>
-            Prices are not included. You must set Cost Price in Stock tab after import.
+            Prices are not included. Set Cost Price manually after import.
         </div>
     </div>
 </div>
@@ -151,6 +151,19 @@
         document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
         document.getElementById(tab + '-tab').classList.add('active');
         document.getElementById('nav-' + tab).classList.add('active');
+    }
+
+    // ==================== AUTO FILL FROM BARCODE ====================
+    function autoFillFromBarcode(barcode) {
+        if (barcode.length < 3) return;
+
+        const item = inventory.find(i => String(i.barcode) === String(barcode));
+        if (item) {
+            document.getElementById('stock-name').value = item.name || "";
+            document.getElementById('stock-cost').value = item.cost || "";
+            document.getElementById('stock-cat').value = item.category || "Other";
+            document.getElementById('stock-status').textContent = "✅ Item found - data populated";
+        }
     }
 
     async function startScanner(mode) {
@@ -221,7 +234,9 @@
                     setTimeout(stopScanner, 400);
                     incrementDailyCount();
                 } else {
+                    // Stock mode - auto fill
                     document.getElementById('stock-barcode').value = code;
+                    autoFillFromBarcode(code);
                     stopScanner();
                 }
             });
@@ -282,12 +297,10 @@
         const url = localStorage.getItem('sheet-url');
         if (!url) return alert("Please set the Google Apps Script URL first!");
 
-        if (!confirm("Import products from Master Database?\n\nWarning: Prices are NOT included.\nYou will need to set Cost Price manually in Stock tab.")) {
-            return;
-        }
+        if (!confirm("Import products from Master Database?\n\nWarning: Prices are NOT included.\nYou must set Cost Price manually.")) return;
 
         const statusEl = document.getElementById('sale-status');
-        statusEl.textContent = "Importing from Master Database...";
+        statusEl.textContent = "Importing Master Products...";
 
         try {
             const res = await fetch(url, {
@@ -301,7 +314,7 @@
             const masterItems = await res.json();
 
             if (!Array.isArray(masterItems) || masterItems.length === 0) {
-                return alert("Master database is empty.");
+                return alert("Master database returned no items.");
             }
 
             let importedCount = 0;
@@ -309,24 +322,23 @@
 
             for (const item of masterItems) {
                 const barcode = String(item.barcode || "").trim();
-                if (!barcode || existingBarcodes.has(barcode)) continue;   // Skip if already exists
+                if (!barcode || existingBarcodes.has(barcode)) continue;
 
                 const newItem = {
                     barcode: barcode,
                     name: String(item.name || ""),
-                    cost: 0,                    // Price not set
+                    cost: 0,
                     category: String(item.category || "Other")
                 };
 
-                // Save to user's sheet
                 await saveSingleItemToSheet(newItem);
                 inventory.push(newItem);
                 existingBarcodes.add(barcode);
                 importedCount++;
             }
 
-            elements.saleStatus.textContent = `✅ Imported ${importedCount} new products (prices not set)`;
-            alert(`✅ Imported ${importedCount} new products!\n\nNote: Cost prices are 0. Please set them in Stock tab.`);
+            elements.saleStatus.textContent = `✅ Imported ${importedCount} new products`;
+            alert(`✅ Imported ${importedCount} products!\n\nNote: Cost prices are 0. Please set them in Stock tab.`);
 
         } catch (e) {
             console.error(e);
@@ -344,7 +356,7 @@
                 body: JSON.stringify({ action: "addStock", data: item })
             });
         } catch (e) {
-            console.error("Failed to save imported item:", e);
+            console.error("Failed to save item:", e);
         }
     }
 
