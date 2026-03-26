@@ -413,27 +413,39 @@
         }
 
         // ==================== CREATE NEW SHARED SHEET ====================
-        async function createNewSheet() {
-            if (!confirm("This will create a new Google Sheet in your Drive called 'Tuckshop POS - My Inventory'.\n\nIt will be shared with anyone who has the link.\n\nContinue?")) return;
+       async function createNewSheet() {
+    if (!confirm("This will create a new Google Sheet in your Drive called 'Tuckshop POS - My Inventory'.\n\nIt will be shared with anyone who has the link.\n\nContinue?")) return;
 
-            const statusEl = document.getElementById('sale-status');
-            statusEl.textContent = "Creating your new sheet... Please wait.";
+    const statusEl = document.getElementById('sale-status');
+    statusEl.textContent = "Creating your new sheet... Please wait.";
 
-            try {
-                const res = await fetch(APPS_SCRIPT_URL, { method: 'GET' });
-                if (!res.ok) throw new Error("Failed to reach server");
+    try {
+        // Use GET with no extra headers
+        const res = await fetch(APPS_SCRIPT_URL + "?t=" + Date.now(), { 
+            method: 'GET',
+            cache: 'no-store'
+        });
 
-                const htmlText = await res.text();
-                const newWindow = window.open("", "_blank");
-                newWindow.document.write(htmlText);
-                newWindow.document.close();
+        if (!res.ok) throw new Error("Server responded with " + res.status);
 
-                statusEl.textContent = "✅ Sheet created! Check the new tab.";
-            } catch (e) {
-                statusEl.textContent = "❌ Failed to create sheet";
-                alert("Could not create sheet.\nMake sure your Apps Script is deployed as 'Anyone, even anonymous'.");
-            }
+        const htmlText = await res.text();
+        
+        // Open in new tab
+        const newWindow = window.open("", "_blank");
+        if (newWindow) {
+            newWindow.document.write(htmlText);
+            newWindow.document.close();
+        } else {
+            alert("Popup blocked! Please allow popups for this site.");
         }
+
+        statusEl.textContent = "✅ Sheet creation page opened in new tab.";
+    } catch (e) {
+        console.error(e);
+        statusEl.textContent = "❌ Failed";
+        alert("Could not create sheet.\n\nMake sure:\n1. Apps Script is deployed as 'Anyone'\n2. You are using the latest /exec URL");
+    }
+}
 
         function saveUserSheetURL() {
             const url = document.getElementById('user-sheet-url').value.trim();
