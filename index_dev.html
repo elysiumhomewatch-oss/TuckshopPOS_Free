@@ -415,18 +415,17 @@
         // ==================== CREATE NEW SHARED SHEET ====================
        // ==================== CREATE NEW SHARED SHEET (SIMPLIFIED & MORE RELIABLE) ====================
 function createNewSheet() {
-    if (!confirm("This will create a new Google Sheet in your Drive.\n\nAfter it opens, please manually set sharing to 'Anyone with the link' (can edit).\n\nContinue?")) 
+    if (!confirm("This will open a new blank Google Sheet for your Tuckshop.\n\nAfter it opens:\n1. Click 'Share' in the top right\n2. Set to 'Anyone with the link' → Editor\n3. Copy the URL and paste it below in the app.\n\nContinue?")) 
         return;
 
     const statusEl = document.getElementById('sale-status');
-    statusEl.textContent = "Opening sheet creator...";
+    statusEl.textContent = "Opening new Google Sheet...";
 
-    // Direct open - most reliable, avoids CORS/fetch issues
-    window.open(APPS_SCRIPT_URL, "_blank");
+    // Open a new blank Google Sheet directly (no Apps Script involved)
+    window.open("https://docs.google.com/spreadsheets/create", "_blank");
 
-    statusEl.textContent = "✅ New tab opened. Set sharing to 'Anyone with the link'.";
+    statusEl.textContent = "✅ New sheet opened in new tab. Please set sharing and paste the URL below.";
 }
-
         function saveUserSheetURL() {
             const url = document.getElementById('user-sheet-url').value.trim();
             if (url) {
