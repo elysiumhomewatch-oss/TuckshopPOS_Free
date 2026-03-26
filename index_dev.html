@@ -415,16 +415,16 @@
         // ==================== CREATE NEW SHARED SHEET ====================
        // ==================== CREATE NEW SHARED SHEET (SIMPLIFIED & MORE RELIABLE) ====================
 function createNewSheet() {
-    if (!confirm("This will create a new Google Sheet in your Drive called 'Tuckshop POS - My Inventory'.\n\nIt will be shared with anyone who has the link.\n\nContinue?")) 
+    if (!confirm("This will create a new Google Sheet in your Drive.\n\nAfter it opens, please manually set sharing to 'Anyone with the link' (can edit).\n\nContinue?")) 
         return;
 
     const statusEl = document.getElementById('sale-status');
     statusEl.textContent = "Opening sheet creator...";
 
-    // Directly open the doGet endpoint — this usually avoids CORS issues
+    // Direct open - most reliable, avoids CORS/fetch issues
     window.open(APPS_SCRIPT_URL, "_blank");
 
-    statusEl.textContent = "✅ Check the new tab that opened.";
+    statusEl.textContent = "✅ New tab opened. Set sharing to 'Anyone with the link'.";
 }
 
         function saveUserSheetURL() {
