@@ -24,11 +24,19 @@
         .btn-save { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-gray { background: var(--gray); color: white; }
+        .btn-create { background: #10b981; color: white; }
         .cart-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
         #search-results, #stock-search-results { 
-            position: absolute; background: white; width: 100%; border: 1px solid #e2e8f0; 
-            border-radius: 10px; max-height: 220px; overflow-y: auto; z-index: 15; 
-            display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+            position: absolute; 
+            background: white; 
+            width: 100%; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 10px; 
+            max-height: 220px; 
+            overflow-y: auto; 
+            z-index: 15; 
+            display: none; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
         }
         .search-row { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
         .search-row:hover { background: #f8fafc; }
@@ -37,29 +45,9 @@
         .status { color: var(--gray); font-size: 14px; margin-top: 8px; }
         .markup-group { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
         .markup-group label { flex: 0 0 100px; font-weight: 500; }
-
-        /* Collapsible Instructions */
-        .accordion {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            margin: 16px 0;
-            overflow: hidden;
-        }
-        .accordion-header {
-            padding: 14px;
-            background: #f1f5f9;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .accordion-content {
-            padding: 14px;
-            display: none;
-            line-height: 1.5;
-        }
+        .accordion { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; margin: 16px 0; overflow: hidden; }
+        .accordion-header { padding: 14px; background: #f1f5f9; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .accordion-content { padding: 14px; display: none; line-height: 1.5; }
         .accordion-content.show { display: block; }
     </style>
 </head>
@@ -67,7 +55,7 @@
 
 <div class="container">
     <h2 style="text-align:center; color:var(--primary);">Tuckshop POS Free</h2>
-    <div class="watermark">Free Level 0 – Simple & Reliable for Spaza Shops</div>
+    <div class="watermark">Free Level 0 – Simple POS for Spaza Shops</div>
 
     <nav>
         <button id="nav-sale" class="active" onclick="showTab('sale')">Sale</button>
@@ -124,6 +112,11 @@
     <div id="sets-tab" class="tab-content">
         <h2>Settings</h2>
         
+        <button class="btn btn-create" onclick="createNewSheet()">🆕 Create New Shared Sheet for Me</button>
+        <p style="text-align:center; font-size:14px; color:#64748b; margin:8px 0 20px 0;">
+            One-tap setup: Creates a new Google Sheet in your Drive and copies the URL
+        </p>
+
         <label>Your Google Sheet URL:</label>
         <input type="text" id="user-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="margin-bottom:12px;">
         
@@ -146,34 +139,35 @@
         </div>
         <button class="btn" style="background:#334155; color:white;" onclick="saveMarkups()">Save Markups</button>
 
-        <!-- Collapsible Usage Instructions -->
+        <!-- Usage Instructions -->
         <div class="accordion" style="margin-top:24px;">
             <div class="accordion-header" onclick="toggleAccordion(this)">
                 📖 How to Use Tuckshop POS Free
                 <span>▼</span>
             </div>
             <div class="accordion-content">
-                <strong>Welcome!</strong><br><br>
-                1. <strong>Settings Tab</strong> → Paste your Google Sheet URL and tap "Save My Sheet & Sync"<br>
-                2. Tap <strong>"Refresh Inventory from My Sheet"</strong> to load your products<br>
-                3. <strong>Sale Tab</strong>: Scan barcodes or search → items go into cart<br>
-                4. When ready, tap <strong>"Complete Sale"</strong> → enter cash received → see change to give back<br>
-                5. <strong>Stock Tab</strong>: Scan or type barcode → fill name & cost → Save<br>
-                6. Change markups anytime in Settings<br><br>
-                <em>Everything saves automatically on your phone. No internet needed after initial setup.</em>
+                <strong>Welcome to Tuckshop POS Free!</strong><br><br>
+                1. In Settings, tap <strong>"Create New Shared Sheet for Me"</strong> (recommended for new users)<br>
+                2. Paste the sheet URL (it will be copied automatically) and tap "Save My Sheet & Sync"<br>
+                3. Tap <strong>"Refresh Inventory from My Sheet"</strong> to load your products<br>
+                4. Go to Sale tab: Scan barcodes or search items → add to cart<br>
+                5. When ready, tap <strong>"Complete Sale"</strong> → enter cash received → see exact change<br>
+                6. Use Stock tab to add or edit items<br>
+                7. Adjust markups in Settings anytime<br><br>
+                <em>Everything saves automatically on your device. Works offline after setup.</em>
             </div>
         </div>
 
-        <!-- Paid Upgrades Section -->
+        <!-- Paid Upgrades -->
         <div class="upgrade-msg" style="margin-top:16px;">
-            <strong>Want More?</strong><br><br>
+            <strong>Want More Features?</strong><br><br>
             Upgrade to unlock:<br>
-            • Unlimited daily sales (no 100-item limit)<br>
-            • Recipe system (Kota, drinks, takeaways – auto deduct ingredients)<br>
-            • Employee clock-in / payroll<br>
-            • Stock-take & reports<br>
+            • Unlimited daily sales (remove 100-item limit)<br>
+            • Recipe system for kota, drinks & takeaways<br>
+            • Employee clock-in, shifts & payroll<br>
+            • Full stock-take & reports<br>
             • Float management & card payments<br>
-            • Multiple users & advanced analytics<br><br>
+            • Multiple users and advanced tools<br><br>
             Contact the developer for upgrade options.
         </div>
     </div>
@@ -181,7 +175,7 @@
 
 <script>
     // ==================== HARDCODED APPS SCRIPT URL ====================
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx9AKjnz2PLNSUh-wNe_1uuPIipUPrScWcpCriiuOwxbeZf3LmYcTW4h0GTTuLXHkVi/exec"; 
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyVdX6RgCCRj3rAHC23tG2MOYkVXQkfHAv0IOo1iS39WcM-zo9oHXW5nJIDhUjAiBc/exec"; 
     // ←←← CHANGE THIS TO YOUR ACTUAL DEPLOYED APPS SCRIPT URL
 
     let inventory = [];
@@ -243,6 +237,29 @@
         return String(barcode || "").trim().replace(/^0+/, '');
     }
 
+    // ==================== CREATE NEW SHARED SHEET ====================
+    async function createNewSheet() {
+        if (!confirm("This will create a new Google Sheet in your Drive called 'Tuckshop POS - My Inventory'.\n\nIt will be shared with anyone who has the link.\n\nContinue?")) return;
+
+        const statusEl = document.getElementById('sale-status');
+        statusEl.textContent = "Creating your new sheet... Please wait.";
+
+        try {
+            const res = await fetch(APPS_SCRIPT_URL, { method: 'GET' });
+            if (!res.ok) throw new Error("Failed to reach server");
+
+            const htmlText = await res.text();
+            const newWindow = window.open("", "_blank");
+            newWindow.document.write(htmlText);
+            newWindow.document.close();
+
+            statusEl.textContent = "✅ Sheet created! Check the new tab.";
+        } catch (e) {
+            statusEl.textContent = "❌ Failed to create sheet";
+            alert("Could not create sheet.\nMake sure your Apps Script is deployed as 'Anyone, even anonymous'.");
+        }
+    }
+
     function saveUserSheetURL() {
         const url = document.getElementById('user-sheet-url').value.trim();
         if (url) {
@@ -272,7 +289,6 @@
         renderCart();
     }
 
-    // Collapsible Instructions
     function toggleAccordion(header) {
         const content = header.nextElementSibling;
         content.classList.toggle('show');
@@ -303,8 +319,10 @@
             resultsDiv.style.display = 'none';
             return;
         }
+
         const lower = val.toLowerCase();
         const normalized = normalizeBarcode(val);
+
         const filtered = inventory.filter(i => 
             (i.name || '').toLowerCase().includes(lower) || 
             normalizeBarcode(i.barcode) === normalized
@@ -315,6 +333,7 @@
                 ${i.name} (${i.barcode})
             </div>`
         ).join('');
+
         resultsDiv.style.display = filtered.length ? 'block' : 'none';
     }
 
@@ -354,23 +373,45 @@
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                video: { 
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
             });
 
             currentMediaStream = stream;
+
             document.getElementById('interactive').style.display = 'block';
             document.getElementById('stop-scan-btn').style.display = 'block';
             isScannerRunning = true;
 
             Quagga.init({
-                inputStream: { name: "Live", type: "LiveStream", target: document.getElementById('interactive'), constraints: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.getElementById('interactive'),
+                    constraints: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                },
                 locator: { patchSize: "medium", halfSample: true },
                 numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
                 frequency: 15,
-                decoder: { readers: ["ean_reader", "upc_reader", "code_128_reader", "code_39_reader", "i2of5_reader"], multiple: false },
+                decoder: {
+                    readers: ["ean_reader", "upc_reader", "code_128_reader", "code_39_reader", "i2of5_reader"],
+                    multiple: false
+                },
                 locate: true
             }, (err) => {
-                if (err) { alert("Scanner failed to start: " + err); stopScanner(); return; }
+                if (err) {
+                    console.error("Quagga init error:", err);
+                    alert("Scanner failed to start: " + err);
+                    stopScanner();
+                    return;
+                }
                 Quagga.start();
             });
 
@@ -393,15 +434,20 @@
                     stopScanner();
                 }
             });
+
         } catch (e) {
-            alert(`Camera error: ${e.name}\nTry restarting your phone.`);
+            console.error("Camera error:", e);
+            alert(`Camera error: ${e.name}\n${e.message || ''}\n\nTry restarting your phone.`);
             stopScanner();
         }
     }
 
     function stopScanner() {
         if (Quagga && isScannerRunning) Quagga.stop();
-        if (currentMediaStream) currentMediaStream.getTracks().forEach(track => track.stop());
+        if (currentMediaStream) {
+            currentMediaStream.getTracks().forEach(track => track.stop());
+            currentMediaStream = null;
+        }
         document.getElementById('interactive').style.display = 'none';
         document.getElementById('stop-scan-btn').style.display = 'none';
         isScannerRunning = false;
@@ -423,7 +469,10 @@
 
     async function fetchInventoryFromSheet() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
-        if (!sheetUrl) return alert("Please enter your Google Sheet URL first.");
+        if (!sheetUrl) {
+            alert("Please enter your Google Sheet URL first.");
+            return;
+        }
 
         elements.saleStatus.textContent = "Loading from your Google Sheet...";
 
@@ -431,10 +480,16 @@
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "getInventory", sheetUrl: sheetUrl })
+                body: JSON.stringify({ 
+                    action: "getInventory",
+                    sheetUrl: sheetUrl 
+                })
             });
 
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
             const rawData = await res.json();
+
             inventory = rawData.map(row => ({
                 barcode: normalizeBarcode(row.Barcode || row.barcode || ""),
                 name: String(row.Name || row.name || ""),
@@ -445,6 +500,7 @@
             saveInventoryToLocal();
             elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from your sheet`;
         } catch (e) {
+            console.error("Fetch error:", e);
             elements.saleStatus.textContent = "❌ Failed to load from sheet";
         }
     }
@@ -452,16 +508,30 @@
     async function importMasterProducts() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) return alert("Please enter your Google Sheet URL first!");
+
         if (!confirm("Import products from Master Database?\n\nWarning: Prices are NOT included.")) return;
+
+        const statusEl = document.getElementById('sale-status');
+        statusEl.textContent = "Importing Master Products...";
 
         try {
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "importMaster", sheetUrl: sheetUrl })
+                body: JSON.stringify({ 
+                    action: "importMaster",
+                    sheetUrl: sheetUrl 
+                })
             });
 
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
             const masterItems = await res.json();
+
+            if (!Array.isArray(masterItems) || masterItems.length === 0) {
+                return alert("Master database returned no items.");
+            }
+
             let importedCount = 0;
             const existingBarcodes = new Set(inventory.map(i => normalizeBarcode(i.barcode)));
 
@@ -469,7 +539,13 @@
                 const normalizedBarcode = normalizeBarcode(item.barcode);
                 if (!normalizedBarcode || existingBarcodes.has(normalizedBarcode)) continue;
 
-                const newItem = { barcode: normalizedBarcode, name: String(item.name || ""), cost: 0, category: String(item.category || "Other") };
+                const newItem = {
+                    barcode: normalizedBarcode,
+                    name: String(item.name || ""),
+                    cost: 0,
+                    category: String(item.category || "Other")
+                };
+
                 await saveSingleItemToSheet(newItem);
                 inventory.push(newItem);
                 existingBarcodes.add(normalizedBarcode);
@@ -478,8 +554,10 @@
 
             saveInventoryToLocal();
             elements.saleStatus.textContent = `✅ Imported ${importedCount} new products`;
-            alert(`✅ Imported ${importedCount} products!\n\nSet cost prices in Stock tab.`);
+            alert(`✅ Imported ${importedCount} products!\n\nNote: Cost prices are 0. Please set them in Stock tab.`);
+
         } catch (e) {
+            console.error(e);
             alert("Import failed: " + e.message);
         }
     }
@@ -491,9 +569,15 @@
             await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "addStock", data: item, sheetUrl: sheetUrl })
+                body: JSON.stringify({ 
+                    action: "addStock", 
+                    data: item,
+                    sheetUrl: sheetUrl 
+                })
             });
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error("Failed to save item:", e);
+        }
     }
 
     async function saveStockToCloud() {
@@ -510,25 +594,42 @@
 
         if (!data.name || !data.barcode) return alert("Barcode and Item Name are required!");
 
+        const saveBtn = document.getElementById('save-stock-btn');
+        const statusEl = document.getElementById('stock-status');
+
+        saveBtn.disabled = true;
+        statusEl.textContent = "Saving / Updating...";
+
         try {
             const res = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "addStock", data: data, sheetUrl: sheetUrl })
+                body: JSON.stringify({ 
+                    action: "addStock", 
+                    data: data,
+                    sheetUrl: sheetUrl 
+                })
             });
 
             const result = await res.json();
+
             if (result.success) {
                 alert("✅ Item saved / updated successfully!");
                 const index = inventory.findIndex(i => normalizeBarcode(i.barcode) === data.barcode);
-                if (index !== -1) inventory[index] = { ...inventory[index], ...data };
-                else inventory.push(data);
+                if (index !== -1) {
+                    inventory[index] = { ...inventory[index], ...data };
+                } else {
+                    inventory.push(data);
+                }
                 saveInventoryToLocal();
             } else {
-                alert("Save failed.");
+                alert("Save failed: " + (result.error || "Unknown error"));
             }
         } catch (e) {
             alert("Connection error: " + e.message);
+        } finally {
+            saveBtn.disabled = false;
+            statusEl.textContent = "";
         }
     }
 
